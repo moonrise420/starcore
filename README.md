@@ -73,7 +73,8 @@ StarCore collects nothing and never goes online on its own. The Workshop, GitHub
 ## Fuel for the hyperdrive
 > Hyperspace is free. Building the hyperdrive took a lot of coffee.
 
-If StarCore got your ship off the ground, a small tip helps the next one take off: [paypal.me/soulridejourney](https://www.paypal.me/soulridejourney)
+If StarCore got your ship off the ground, a small tip helps the next one take off:
+[![](.github/images/donate.png)](https://www.paypal.me/soulridejourney)
 Never needed, always appreciated. A thumbs-up and a favourite help a lot too.
 
 ---
