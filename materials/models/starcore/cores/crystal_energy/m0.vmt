@@ -1,0 +1,6 @@
+"VertexLitGeneric"
+{
+	"$basetexture" "models/starcore/cores/crystal_energy/m0"
+	"$translucent" "1"
+	"$alpha" "0.76"
+}

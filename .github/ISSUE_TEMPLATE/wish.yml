@@ -1,0 +1,15 @@
+name: Wish or idea
+description: Something you would like to have
+labels: ["wish"]
+body:
+  - type: textarea
+    id: wish
+    attributes:
+      label: What would you like?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: What would you do with it?
+      description: A short example helps us build the right thing.

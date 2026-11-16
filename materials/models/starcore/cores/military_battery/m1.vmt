@@ -1,0 +1,9 @@
+"VertexLitGeneric"
+{
+	"$basetexture" "models/starcore/cores/military_battery/m1"
+	"$bumpmap" "models/starcore/cores/military_battery/m1_n"
+	"$phong" "1"
+	"$phongexponent" "24"
+	"$phongboost" "2"
+	"$phongfresnelranges" "[0.3 0.7 1]"
+}

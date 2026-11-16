@@ -1,0 +1,11 @@
+"VertexLitGeneric"
+{
+	"$basetexture" "models/starcore/cores/reactor_bak/m2"
+	"$bumpmap" "models/starcore/cores/reactor_bak/m2_n"
+	"$phong" "1"
+	"$phongexponent" "24"
+	"$phongboost" "2"
+	"$phongfresnelranges" "[0.3 0.7 1]"
+	"$selfillum" "1"
+	"$selfillummask" "models/starcore/cores/reactor_bak/m2_glow"
+}

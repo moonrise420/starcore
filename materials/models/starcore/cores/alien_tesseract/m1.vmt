@@ -1,0 +1,7 @@
+"VertexLitGeneric"
+{
+	"$basetexture" "models/starcore/cores/alien_tesseract/m1"
+	"$selfillum" "1"
+	"$translucent" "1"
+	"$alpha" "0.83"
+}

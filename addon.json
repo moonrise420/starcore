@@ -1,0 +1,14 @@
+{
+	"title": "StarCore - Ship System",
+	"type": "tool",
+	"tags": [
+		"build",
+		"fun"
+	],
+	"ignore": [
+		"*.md",
+		"LICENSE",
+		".git*",
+		"tests/*"
+	]
+}

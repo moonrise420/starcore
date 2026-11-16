@@ -1,0 +1,5 @@
+"VertexLitGeneric"
+{
+	"$basetexture" "models/starcore/cores/alien_artifact/m0"
+	"$selfillum" "1"
+}

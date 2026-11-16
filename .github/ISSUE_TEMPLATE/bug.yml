@@ -1,0 +1,42 @@
+name: Bug report
+description: Something does not work as it should
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can we see it ourselves?
+      placeholder: |
+        1. Spawn ...
+        2. Press ...
+        3. ...
+  - type: input
+    id: map
+    attributes:
+      label: Map
+      placeholder: gm_flatgrass
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where did you play?
+      options:
+        - Single player
+        - Listen server (hosted from my game)
+        - Dedicated server
+  - type: textarea
+    id: error
+    attributes:
+      label: Error text from the console (if there is one)
+      description: Open the console (~), copy the red lines.
+      render: text
+  - type: textarea
+    id: addons
+    attributes:
+      label: Other addons you use (if you think they matter)

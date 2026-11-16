@@ -1,0 +1,12 @@
+"VertexLitGeneric"
+{
+	"$basetexture" "models/starcore/cores/alien_prism/m1"
+	"$bumpmap" "models/starcore/cores/alien_prism/m1_n"
+	"$phong" "1"
+	"$phongexponent" "24"
+	"$phongboost" "2"
+	"$phongfresnelranges" "[0.3 0.7 1]"
+	"$selfillum" "1"
+	"$selfillummask" "models/starcore/cores/alien_prism/m1_glow"
+	"$translucent" "1"
+}
