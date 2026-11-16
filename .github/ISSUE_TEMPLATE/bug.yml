@@ -12,7 +12,7 @@ body:
   - type: textarea
     id: steps
     attributes:
-      label: How can we see it ourselves?
+      label: How can I see it myself?
       placeholder: |
         1. Spawn ...
         2. Press ...
