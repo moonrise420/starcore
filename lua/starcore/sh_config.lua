@@ -51,7 +51,7 @@ end
 -- our own links: fill in once they exist (empty = no button)
 StarCore.Links = {
 	GitHub = "https://github.com/moonrise420/starcore",
-	Workshop = "", -- e.g. https://steamcommunity.com/sharedfiles/filedetails/?id=<id>
+	Workshop = "https://steamcommunity.com/sharedfiles/filedetails/?id=3840678974",
 	Tip = "https://www.paypal.me/soulridejourney", -- a tip / donation page (Ko-fi, PayPal.me, ...): the menu shows a "Support / Tip" button
 }
 

@@ -5,7 +5,7 @@
 StarCore turns whatever you built into a real spaceship. Weld one core to your build, sit down, and it flies: hover, jump through hyperspace, raise shields, fire your guns. No E2, no wiring, no setup - the core finds the ship by itself.
 
 ## Install
-**Steam Workshop (easiest):** subscribe there.
+**Steam Workshop (easiest):** subscribe [there](https://steamcommunity.com/sharedfiles/filedetails/?id=3840678974).
 
 **By hand:** download `starcore-1.0.0.zip` from [Releases](../../releases/latest) and unpack it into
 `garrysmod/addons/` (you get the folder `garrysmod/addons/starcore`).
@@ -57,7 +57,7 @@ Nothing. StarCore works alone.
 - **Ascension Gates** (or CAP / EAP): Stargate and transporter features
 - [Wiremod](https://steamcommunity.com/sharedfiles/filedetails/?id=160250458): weapons and E2 control
 
-All our addons in one click: *Ascension Gates - Complete* (Steam Workshop collection)
+All our addons in one click: [Ascension Gates - Complete](https://steamcommunity.com/sharedfiles/filedetails/?id=3840681489)
 
 ## First flight
 1. Build something with a seat. Freeze it.

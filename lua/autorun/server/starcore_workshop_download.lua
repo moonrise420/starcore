@@ -2,7 +2,7 @@
 -- spawn (resource.AddWorkshop). Without it they see ERROR models and missing textures. Fill in the Workshop item
 -- IDs after the upload; empty = nothing is sent. Servers with their own FastDL can turn it off: agp_workshop_download 0
 local IDS = {
-	"", -- StarCore
+	"3840678974", -- StarCore
 }
 
 local cv = CreateConVar("agp_workshop_download", "1", FCVAR_ARCHIVE, "Send our addons' Workshop content to joining players (1 = on)")
