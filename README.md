@@ -57,7 +57,7 @@ Nothing. StarCore works alone.
 - **Ascension Gates** (or CAP / EAP): Stargate and transporter features
 - [Wiremod](https://steamcommunity.com/sharedfiles/filedetails/?id=160250458): weapons and E2 control
 
-All my addons in one click: [Ascension Gates - Complete](https://steamcommunity.com/sharedfiles/filedetails/?id=3840681489)
+All Ascension Gates addons in one click: [Ascension Gates - Complete](https://steamcommunity.com/sharedfiles/filedetails/?id=3840681489)
 
 ## First flight
 1. Build something with a seat. Freeze it.
