@@ -1,4 +1,5 @@
 # StarCore - Ship System
+<img src=".github/images/thumbnail.jpg" width="220" align="right" alt="">
 > Build anything. Put a core in it. Fly it.
 
 StarCore turns whatever you built into a real spaceship. Weld one core to your build, sit down, and it flies: hover, jump through hyperspace, raise shields, fire your guns. No E2, no wiring, no setup - the core finds the ship by itself.
@@ -11,6 +12,17 @@ StarCore turns whatever you built into a real spaceship. Weld one core to your b
 
 ## Bugs, problems and wishes
 Please use [Issues](../../issues): pick *Bug report* or *Wish or idea*. On the Steam Workshop page the comments work too.
+
+## Pictures
+<p>
+<img src=".github/images/01_gal_sc_reactor_core_1.jpg" width="49%" alt="">
+<img src=".github/images/02_gal_sc_crystal_heart_2.jpg" width="49%" alt="">
+<img src=".github/images/03_gal_sc_alien_artifact_1.jpg" width="49%" alt="">
+<img src=".github/images/04_gal_sc_military_case_2.jpg" width="49%" alt="">
+<img src=".github/images/05_gal_sc_crystal_heart_1.jpg" width="49%" alt="">
+<img src=".github/images/06_gal_sc_reactor_core_2.jpg" width="49%" alt="">
+<img src=".github/images/07_gal_sc_alien_artifact_2.jpg" width="49%" alt="">
+</p>
 
 ---
 
