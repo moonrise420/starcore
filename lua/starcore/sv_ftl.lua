@@ -96,6 +96,7 @@ end
 
 function StarCore.RequestJump(core, ply, target)
 	local d = core.FTLData
+	if not StarCore.CV.allowJump:GetBool() then return false, "disabled_by_server" end   -- (server setting, every way to jump comes here)
 	if core.Sleeping or core.TooBig then return false, core.TooBig and "too_big" or "second_core" end
 	if core.Disabled then return false, "ship_disabled" end
 	if d.state == FTL.COOLDOWN then return false, "cooling_down" end

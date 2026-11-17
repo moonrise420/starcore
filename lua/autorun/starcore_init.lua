@@ -1,8 +1,8 @@
 -- StarCore - Spaceship Core: loader
 StarCore = StarCore or {}
-StarCore.Version = "1.0.0"
+StarCore.Version = "1.0.1"
 
-local shared = { "sh_config.lua", "sh_license.lua", "sh_voice.lua", "sh_walk.lua" }
+local shared = { "sh_config.lua", "sh_license.lua", "sh_voice.lua", "sh_walk.lua", "sh_admin.lua" }
 local server = { "sv_core.lua", "sv_helm.lua", "sv_teleport.lua", "sv_ftl.lua", "sv_stargate.lua", "sv_combat.lua", "sv_power.lua", "sv_transporter.lua", "sv_wire.lua", "sv_autopilot.lua", "sv_crew.lua", "sv_systems.lua", "sv_net.lua" }
 local client = { "cl_menu.lua", "cl_hud.lua" }
 

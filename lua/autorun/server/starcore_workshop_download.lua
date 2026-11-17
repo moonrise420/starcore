@@ -5,7 +5,7 @@ local IDS = {
 	"3840678974", -- StarCore
 }
 
-local cv = CreateConVar("agp_workshop_download", "1", FCVAR_ARCHIVE, "Send our addons' Workshop content to joining players (1 = on)")
+local cv = CreateConVar("agp_workshop_download", "1", FCVAR_ARCHIVE, "Send the Ascension Gates addons' Workshop content to joining players (1 = on)")
 if not cv:GetBool() then return end
 for _, id in ipairs(IDS) do
 	if id ~= "" then resource.AddWorkshop(id) end

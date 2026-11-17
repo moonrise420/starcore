@@ -70,9 +70,10 @@ function StarCore.HelmSetOn(core, on)
 end
 
 -- mouse steering (per player, starcore_mouse_steer): the mouse moves of every command are summed up here,
--- the helm takes them once per tick. Alt (walk key) held = look around freely instead.
+-- the helm takes them once per tick. Looking around (the look-around key, Alt by default: starcore_looking, cl_hud.lua)
+-- = the view is free instead.
 local function mouseSteer(ply)
-	return ply:GetInfoNum("starcore_mouse_steer", 0) == 1 and not ply:KeyDown(IN_WALK)
+	return ply:GetInfoNum("starcore_mouse_steer", 0) == 1 and ply:GetInfoNum("starcore_looking", 0) == 0
 end
 hook.Add("StartCommand", "StarCore.MouseSteer", function(ply, cmd)
 	if not ply:InVehicle() or not ply.StarCorePilot then return end
@@ -281,7 +282,8 @@ hook.Add("PlayerEnteredVehicle", "StarCore.Helm", function(ply, veh)
 	for core in pairs(StarCore.Cores) do
 		if IsValid(core) and core.PilotSeat == veh and StarCore.CanControl(core, ply) then
 			if not core.Helm.on then StarCore.HelmSetOn(core, true) else StarCore.HelmRelock(core) end
-			StarCore.Notify(ply, "pilot_hint", NOTIFY_HINT)
+			-- the keys hint only the first time per game (2026-11-17, owner: "first time ok, but not always when entering")
+			if not ply.StarCorePilotHinted then ply.StarCorePilotHinted = true; StarCore.Notify(ply, "pilot_hint", NOTIFY_HINT) end
 			return
 		end
 	end

@@ -11,6 +11,7 @@ local FLAGS = { FCVAR_ARCHIVE, FCVAR_REPLICATED, FCVAR_NOTIFY }
 StarCore.CV = {
 	maxParts     = CreateConVar("starcore_max_parts", "600", FLAGS, "Most props one StarCore ship may have", 10, 5000),
 	maxSpeed     = CreateConVar("starcore_max_speed", "2500", FLAGS, "Highest flight speed (units per second)", 100, 20000),
+	allowJump    = CreateConVar("starcore_allow_jump", "1", FLAGS, "Ships may make hyperspace jumps (2026-11-16, a Workshop player's wish)", 0, 1),
 	jumpRange    = CreateConVar("starcore_jump_range", "0", FLAGS, "Longest hyperspace jump in units (0 = whole map)", 0, 1000000),
 	chargeMin    = CreateConVar("starcore_jump_charge_min", "2", FLAGS, "Shortest jump charge time in seconds", 0, 60),
 	cooldownMin  = CreateConVar("starcore_jump_cooldown_min", "4", FLAGS, "Shortest time between two jumps in seconds", 0, 600),
@@ -46,6 +47,15 @@ if CLIENT then
 	-- sent to the server (userinfo): the helm reads them for the pilot
 	CreateClientConVar("starcore_mouse_steer", "0", true, true, "StarCore: steer the ship with the mouse in the pilot seat (X turns, Y pitches)", 0, 1)
 	CreateClientConVar("starcore_mouse_sens", "1", true, true, "StarCore: mouse steering sensitivity", 0.2, 3)
+	-- keys of the pilot seat (2026-11-16, a Workshop player: look around as a switch, keys for mouse steering and hover),
+	-- picked in the menu's Settings tab (cl_hud.lua). 0 = no key. Look around: Alt by default, held or tapped on/off.
+	-- Defaults M / H / J (2026-11-17, owner): free in Garry's Mod's default keys and in none of our addons.
+	CreateClientConVar("starcore_key_look", tostring(KEY_LALT), true, false, "StarCore: key to look around in the pilot seat (0 = none)")
+	CreateClientConVar("starcore_look_toggle", "0", true, false, "StarCore: 0 = hold the look-around key, 1 = tap it on/off", 0, 1)
+	CreateClientConVar("starcore_key_mouse", tostring(KEY_M), true, false, "StarCore: key to switch mouse steering on/off (0 = none)")
+	CreateClientConVar("starcore_key_hover", tostring(KEY_H), true, false, "StarCore: key to switch hover on/off (0 = none)")
+	CreateClientConVar("starcore_key_freeze", tostring(KEY_J), true, false, "StarCore: key to freeze / unfreeze the ship (0 = none)")
+	CreateClientConVar("starcore_looking", "0", false, true, "StarCore: set by the look-around key (the helm then ignores the mouse)", 0, 1)
 end
 
 -- our own links: fill in once they exist (empty = no button)

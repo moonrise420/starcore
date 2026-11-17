@@ -7,7 +7,7 @@ StarCore turns whatever you built into a real spaceship. Weld one core to your b
 ## Install
 **Steam Workshop (easiest):** subscribe [there](https://steamcommunity.com/sharedfiles/filedetails/?id=3840678974).
 
-**By hand:** download `starcore-1.0.0.zip` from [Releases](../../releases/latest) and unpack it into
+**By hand:** download `starcore-1.0.1.zip` from [Releases](../../releases/latest) and unpack it into
 `garrysmod/addons/` (you get the folder `garrysmod/addons/starcore`).
 
 ## Bugs, problems and wishes
@@ -30,6 +30,7 @@ Please use [Issues](../../issues): pick *Bug report* or *Wish or idea*. On the S
 
 ### Flight
 - Hover, height lock, WASD, turn, climb and dive, boost - or steer with the mouse
+- Your own keys for look around (Alt: hold or tap), mouse steering, hover and freeze
 - Walk around the bridge while the ship flies: nobody slides off
 - Autopilot: fly to a point or follow a target, climbing over obstacles on the way
 - Hyperspace jumps to saved marks or coordinates, with safety checks before every jump, and three jump effects to choose from
@@ -64,6 +65,9 @@ All Ascension Gates addons in one click: [Ascension Gates - Complete](https://st
 2. Take the **StarCore** tool and left click your build: a core sits there, welded on.
 3. Sit in the seat. Space lifts off, Ctrl goes down, WASD flies, Shift boosts.
 4. Press R for the ship window: helm, jumps, weapons, systems, crew.
+
+## Server settings
+Admins find every server setting in the spawn menu under *Utilities > Admin > StarCore*: speed and prop limits, jumps on/off, jump range and charge time, hull damage, weapons, tractor beams, cloak, fleets, self-destruct. Only admins can change them.
 
 ## Privacy
 StarCore collects nothing and never goes online on its own. The Workshop, GitHub and tip buttons in its menu only open a page when you click them.

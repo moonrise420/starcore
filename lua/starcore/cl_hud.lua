@@ -19,10 +19,76 @@ local function shipCore()
 	return myCore
 end
 
--- mouse steering: in the pilot seat the mouse flies the ship, so the view stays still (hold Alt to look around)
+-- mouse steering: in the pilot seat the mouse flies the ship, so the view stays still (the look-around key frees it)
 local cvMouse = GetConVar("starcore_mouse_steer")
+
+-- keys of the pilot seat (2026-11-16, a Workshop player: "make look around on mouse steering toggleable or to the same
+-- effect keybinds for things like mouse steering and hover"). Picked in the menu's Settings tab, 0 = no key.
+-- Look around = Alt by default, held or tapped on/off (starcore_look_toggle): the view is free and the helm ignores the
+-- mouse (starcore_looking tells the server, sv_helm.lua). Also console commands for binds: starcore_toggle_look/_mouse/_hover/_freeze.
+local cvKeyLook, cvKeyMouse, cvKeyHover = GetConVar("starcore_key_look"), GetConVar("starcore_key_mouse"), GetConVar("starcore_key_hover")
+local cvKeyFreeze = GetConVar("starcore_key_freeze")   -- (same comment, edited: "un-/freeze the whole ship with a keybind")
+local cvLookToggle = GetConVar("starcore_look_toggle")
+StarCore.Looking = false
+local function setLooking(on)
+	if StarCore.Looking == on then return end
+	StarCore.Looking = on
+	RunConsoleCommand("starcore_looking", on and "1" or "0")
+end
+local function pilotCore()
+	local ply = LocalPlayer()
+	if not IsValid(ply) or not ply:InVehicle() then return nil end
+	local core = shipCore()
+	if IsValid(core) and core:GetNWEntity("starcore_pilotseat") == ply:GetVehicle() then return core end
+end
+local function toggleMouse()
+	RunConsoleCommand("starcore_mouse_steer", cvMouse:GetBool() and "0" or "1")
+	setLooking(false)
+	surface.PlaySound("buttons/lightswitch2.wav")
+end
+local function sendToggle(core, cmd, nw)
+	net.Start("starcore_cmd")
+	net.WriteEntity(core)
+	net.WriteString(cmd)
+	net.WriteTable({ on = not core:GetNWBool(nw), quiet = true })
+	net.SendToServer()
+	surface.PlaySound("buttons/lightswitch2.wav")
+end
+local function toggleHover(core) sendToggle(core, "hover", "starcore_hover") end
+local function toggleFreeze(core) sendToggle(core, "freeze", "starcore_frozen") end   -- (only while hovering, like the menu button)
+local held = {}
+local function keyEdge(cv)   -- pressed now, released now, held
+	local k = cv:GetInt()
+	local down = k > 0 and input.IsButtonDown(k) or false
+	local was = held[cv] or false
+	held[cv] = down
+	return down and not was, was and not down, down
+end
+hook.Add("Think", "StarCore.Keys", function()
+	local lookPress, lookRelease = keyEdge(cvKeyLook)
+	local mousePress = keyEdge(cvKeyMouse)
+	local hoverPress = keyEdge(cvKeyHover)
+	local freezePress = keyEdge(cvKeyFreeze)
+	local core = pilotCore()
+	if not core then setLooking(false) return end   -- (left the seat: mouse steering is back next time)
+	local ply = LocalPlayer()
+	-- typing in chat, a text box, the console, a menu, or picking a key in the settings: keys do nothing
+	if vgui.GetKeyboardFocus() or gui.IsGameUIVisible() or gui.IsConsoleVisible() or input.IsKeyTrapping() or ply:IsTyping() then return end
+	if cvLookToggle:GetBool() then
+		if lookPress then setLooking(not StarCore.Looking) end
+	elseif lookPress then setLooking(true)
+	elseif lookRelease then setLooking(false) end
+	if mousePress then toggleMouse() end
+	if hoverPress then toggleHover(core) end
+	if freezePress then toggleFreeze(core) end
+end)
+concommand.Add("starcore_toggle_look", function() if pilotCore() then setLooking(not StarCore.Looking) end end)
+concommand.Add("starcore_toggle_mouse", function() toggleMouse() end)
+concommand.Add("starcore_toggle_hover", function() local c = pilotCore() if c then toggleHover(c) end end)
+concommand.Add("starcore_toggle_freeze", function() local c = pilotCore() if c then toggleFreeze(c) end end)
+
 hook.Add("InputMouseApply", "StarCore.MouseSteer", function(cmd, x, y, ang)
-	if not cvMouse:GetBool() or LocalPlayer():KeyDown(IN_WALK) then return end
+	if not cvMouse:GetBool() or StarCore.Looking then return end
 	local core = shipCore()
 	local ply = LocalPlayer()
 	if not IsValid(core) or not ply:InVehicle() or core:GetNWEntity("starcore_pilotseat") ~= ply:GetVehicle() then return end
@@ -50,7 +116,7 @@ hook.Add("HUDPaint", "StarCore.HUD", function()
 	if core:GetNWBool("starcore_frozen") then parts[2] = parts[2] .. " · " .. T("frozen") end
 	if core:GetNWBool("starcore_autopilot") then parts[2] = parts[2] .. " · " .. T("autopilot") end
 	if core:GetNWBool("starcore_cloaked") then parts[2] = parts[2] .. " · " .. T("cloaked") end
-	if cvMouse:GetBool() and core:GetNWEntity("starcore_pilotseat") == LocalPlayer():GetVehicle() then parts[2] = parts[2] .. " · " .. T("hud_mouse") end
+	if cvMouse:GetBool() and core:GetNWEntity("starcore_pilotseat") == LocalPlayer():GetVehicle() then parts[2] = parts[2] .. " · " .. T(StarCore.Looking and "hud_look" or "hud_mouse") end
 	local role = LocalPlayer():GetVehicle():GetNWString("starcore_role", "pilot")
 	if role ~= "pilot" then parts[1] = "StarCore · " .. T("role_" .. role) end
 	local hmax = core:GetNWInt("starcore_hull_max")

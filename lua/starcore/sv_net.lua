@@ -28,6 +28,7 @@ local handlers = {}
 
 handlers.hover = function(core, ply, d)
 	StarCore.HelmSetOn(core, d.on == true)
+	return d.quiet == true   -- (the hover key of the pilot seat: no menu window comes up)
 end
 
 -- 2026-11-14 (owner: "how can the player set for the starcore were oriantation forward is"): the ship's front = the way the
@@ -117,6 +118,7 @@ end
 
 handlers.freeze = function(core, ply, d)
 	if core.Helm and core.Helm.on then StarCore.SetFrozen(core, d.on == true) end
+	return d.quiet == true   -- (the freeze key of the pilot seat: no menu window comes up)
 end
 
 -- Stargate (level 3)

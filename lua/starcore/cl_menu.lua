@@ -986,6 +986,36 @@ local function buildSettings(sheet)
 	local mh = label(p, T("mouse_help"))
 	mh:SetWrap(true)
 	mh:SetAutoStretchVertical(true)
+
+	-- keys of the pilot seat (per player, 2026-11-16, cl_hud.lua): click a button, press a key; right-click = no key
+	label(p, " ")
+	label(p, T("keys_title"), "DermaDefaultBold")
+	local function binder(textKey, cvName)
+		label(p, T(textKey))
+		local b = vgui.Create("DBinder", p)
+		STYLE.DButton(b)
+		b:Dock(TOP)
+		b:DockMargin(4, 2, 4, 0)
+		b:SetTall(24)
+		b:SetConVar(cvName)
+		b:SetValue(GetConVar(cvName):GetInt())
+		b:SetTooltip(cvName)
+		return b
+	end
+	binder("key_look", "starcore_key_look")
+	local lm = create("DComboBox", p)
+	lm:Dock(TOP)
+	lm:DockMargin(4, 2, 4, 0)
+	local lcv = GetConVar("starcore_look_toggle")
+	lm:AddChoice(T("look_hold"), 0, lcv:GetInt() == 0)
+	lm:AddChoice(T("look_tap"), 1, lcv:GetInt() == 1)
+	lm.OnSelect = function(_, _, _, v) RunConsoleCommand("starcore_look_toggle", tostring(v)) end
+	binder("key_mouse", "starcore_key_mouse")
+	binder("key_hover", "starcore_key_hover")
+	binder("key_freeze", "starcore_key_freeze")
+	local kh = label(p, T("seatkeys_help"))
+	kh:SetWrap(true)
+	kh:SetAutoStretchVertical(true)
 	label(p, " ")
 	label(p, T("ship_info"), "DermaDefaultBold")
 	if IsValid(current) then
@@ -1176,7 +1206,50 @@ function build()
 		end
 	end
 	if frame.items[tabId] then sheet:SetActiveTab(frame.items[tabId].Tab) end
+	-- 2026-11-17 (owner: "i cant move or resize it"): this Think replaced DFrame's own, which does the dragging - so the
+	-- window never moved. Now it calls DFrame's first (title bar drag, bottom-right corner) and adds the edges: the
+	-- left, right and bottom border resize the window (the tabs cover the rest, the border gets the clicks).
+	local EDGE = 7
+	frame:DockPadding(EDGE, 24 + 4, EDGE, EDGE)
+	local base = vgui.GetControlTable("DFrame")
+	local function edgesAt(self)
+		local mx, my = self:ScreenToLocal(gui.MouseX(), gui.MouseY())
+		local w, h = self:GetSize()
+		if my <= 24 or mx < 0 or my < 0 or mx > w or my > h then return nil end
+		local l, r, b = mx < EDGE, mx > w - EDGE, my > h - EDGE
+		if l or r or b then return { l = l, r = r, b = b } end
+	end
+	frame.OnMousePressed = function(self, code)
+		local e = code == MOUSE_LEFT and edgesAt(self)
+		if e then
+			e.mx, e.my, e.x, e.w, e.h = gui.MouseX(), gui.MouseY(), self.x, self:GetWide(), self:GetTall()
+			self.AGPEdge = e
+			self:MouseCapture(true)
+			return
+		end
+		return base.OnMousePressed(self, code)
+	end
+	frame.OnMouseReleased = function(self, code)
+		self.AGPEdge = nil
+		return base.OnMouseReleased(self, code)
+	end
 	frame.Think = function(self)
+		base.Think(self)   -- (dragging at the title bar, the corner, the mouse pointer)
+		local e = self.AGPEdge
+		if e then
+			if not input.IsMouseDown(MOUSE_LEFT) then self.AGPEdge = nil; self:MouseCapture(false)
+			else
+				local dx, dy = gui.MouseX() - e.mx, gui.MouseY() - e.my
+				local w, h, x = e.w, e.h, e.x
+				if e.r then w = math.Clamp(e.w + dx, 380, ScrW() - e.x) end
+				if e.l then w = math.Clamp(e.w - dx, 380, e.x + e.w); x = e.x + e.w - w end
+				if e.b then h = math.Clamp(e.h + dy, 300, ScrH() - self.y) end
+				self:SetPos(x, self.y)
+				self:SetSize(w, h)
+			end
+		end
+		local hov = self.AGPEdge or (self:IsHovered() and edgesAt(self))
+		if hov then self:SetCursor(hov.b and (hov.l and "sizenesw" or hov.r and "sizenwse" or "sizens") or "sizewe") end
 		if not IsValid(current) then self:Close() return end
 		-- keep the radar data coming while the menu is open
 		if (self.nextWatch or 0) < CurTime() then self.nextWatch = CurTime() + 2; send("watch") end

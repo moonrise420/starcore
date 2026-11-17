@@ -1,7 +1,8 @@
 -- StarCore server, level 2 (Wiremod): Wire inputs/outputs on the core, for players who build their own panels.
 -- Nothing here is needed to fly; a ship without wires works fully automatic.
+-- (2026-11-16, owner: one name for one thing - the input "Park" is now "Freeze", like the menu button and the key)
 local INPUTS = {
-	"Hover", "Park", "Jump", "Jump Mark", "Jump Pos [VECTOR]", "Cancel Jump", "Fire", "Target [ENTITY]", "Next Target",
+	"Hover", "Freeze", "Jump", "Jump Mark", "Jump Pos [VECTOR]", "Cancel Jump", "Fire", "Target [ENTITY]", "Next Target",
 	"Shield", "Iris", "Dial [STRING]", "Close Gate", "Autopilot", "Autopilot Pos [VECTOR]",
 	-- 2026-11-14: fly by wire like a Gyro-Pod (read by the helm, sv_helm.lua addWire)
 	"Forward", "Turn", "Up", "Strafe", "Pitch", "Boost",
@@ -11,6 +12,8 @@ local OUTPUTS = {
 	"Target Pos [VECTOR]", "Contacts", "Hostiles", "Gate Open", "Iris Closed", "Autopilot",
 	-- 2026-11-14: where the ship is (owner: "compass, gps with vectors")
 	"Position [VECTOR]", "Velocity [VECTOR]", "Angle [ANGLE]", "Heading", "Pitch", "Roll",
+	-- 2026-11-16: 1 while the ship is frozen in place (input Freeze, the menu's / screen's Freeze button or the pilot's key) - for a lamp
+	"Frozen",
 }
 
 function StarCore.WireSetup(core)
@@ -28,7 +31,7 @@ function StarCore.WireInput(core, name, v)
 	local rising = isnumber(v) and v ~= 0 and (last[name] or 0) == 0
 	last[name] = isnumber(v) and v or last[name]
 	if name == "Hover" then StarCore.HelmSetOn(core, v ~= 0)
-	elseif name == "Park" then if core.Helm and core.Helm.on then StarCore.SetFrozen(core, v ~= 0) end
+	elseif name == "Freeze" then if core.Helm and core.Helm.on then StarCore.SetFrozen(core, v ~= 0) end
 	elseif name == "Jump" and rising then
 		local pos = core.Inputs["Jump Pos"] and core.Inputs["Jump Pos"].Value
 		local mark = core.Inputs["Jump Mark"] and core.Inputs["Jump Mark"].Value or 0
@@ -67,6 +70,7 @@ function StarCore.WireOutputs(core)
 	local hullMax = core:GetNWInt("starcore_hull_max")
 	local out = {
 		["Hover"] = core:GetNWBool("starcore_hover") and 1 or 0,
+		["Frozen"] = core:GetNWBool("starcore_frozen") and 1 or 0,
 		["Speed"] = core:GetNWFloat("starcore_speed"),
 		["Altitude"] = core:GetNWFloat("starcore_alt"),
 		["FTL State"] = core:GetNWInt("starcore_ftl"),
