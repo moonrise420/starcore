@@ -81,7 +81,7 @@ StarCore collects nothing and never goes online on its own. The Workshop, GitHub
 
 If StarCore got your ship off the ground, a small tip helps the next one take off:
 [![](.github/images/donate.png)](https://www.paypal.me/soulridejourney)
-Never needed, always appreciated. A thumbs-up and a favourite help a lot too.
+A thumbs-up and a favourite help a lot too.
 
 ---
 
