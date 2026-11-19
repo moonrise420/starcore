@@ -43,7 +43,7 @@ Please use [Issues](../../issues): pick *Bug report* or *Wish or idea*. On the S
 - Owner, crew and friends are never targeted
 
 ### Stargate tie-in
-With Ascension Gates (or CAP, CAP Enhanced, EAP): the ship's own gate and iris, dialling from the helm, auto-iris, jump to a gate, and Asgard beaming with the ship's transporter.
+With Ascension Gates (or CAP, CAP Enhanced, EAP): the ship's own gate and iris, dialling from the ship window, auto-iris, jump to a gate, and Asgard beaming with the ship's transporter.
 
 ### Looks and comfort
 - 12 core designs in four families: reactor, crystal, alien and military - swap a placed core's look whenever the ship is landed
@@ -55,8 +55,8 @@ With Ascension Gates (or CAP, CAP Enhanced, EAP): the ship's own gate and iris, 
 ---
 
 ## Required
-Nothing. StarCore works alone.
-- **PowerGrid** (or Spacebuild): jumps and systems use the ship's real energy
+Nothing. StarCore works alone. These add to it:
+- **PowerGrid** (or Spacebuild): the ship shows its real energy, and admins can make jumps cost energy
 - **Ascension Gates** (or CAP / EAP): Stargate and transporter features
 - [Wiremod](https://steamcommunity.com/sharedfiles/filedetails/?id=160250458): weapons and E2 control
 
@@ -66,10 +66,10 @@ All Ascension Gates addons in one click: [Ascension Gates - Complete](https://st
 1. Build something with a seat. Freeze it.
 2. Take the **StarCore** tool and left click your build: a core sits there, welded on.
 3. Sit in the seat. Space lifts off, Ctrl goes down, WASD flies, Shift boosts.
-4. Press R for the ship window: helm, jumps, weapons, systems, crew.
+4. Press R for the ship window: helm, jump, radar, power, ship and settings - plus Stargate with a gate addon.
 
 ## Server settings
-Admins find every server setting in the spawn menu under *Utilities > Admin > StarCore*: speed and prop limits, jumps on/off, jump range and charge time, hull damage, weapons, tractor beams, cloak, fleets, self-destruct. Only admins can change them.
+Admins find StarCore's server settings in the spawn menu under *Utilities > Admin > StarCore*: speed and prop limits, jumps on/off, jump range and charge time, hull damage, weapons, tractor beams, cloak, fleets, self-destruct. Only admins can change them. The most cores per player is the console setting **sbox_maxstarcores**.
 
 ## Privacy
 StarCore collects nothing and never goes online on its own. The Workshop, GitHub and tip buttons in its menu only open a page when you click them.
@@ -86,4 +86,4 @@ A thumbs-up and a favourite help a lot too.
 ---
 
 ## Licence
-StarCore's code is MIT. The core models are works of Sketchfab artists under CC BY 4.0 - authors, titles and links are in the game (Settings > Credits) and inside the addon (lua/starcore/sh_license.lua).
+StarCore's code is MIT. The core models are works of Sketchfab artists under CC BY 4.0 - authors, titles and links are in the game (ship window > Settings > Credits) and inside the addon (lua/starcore/sh_license.lua).
