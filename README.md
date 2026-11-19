@@ -7,7 +7,7 @@ StarCore turns whatever you built into a real spaceship. Weld one core to your b
 ## Install
 **Steam Workshop (easiest):** subscribe [there](https://steamcommunity.com/sharedfiles/filedetails/?id=3840678974).
 
-**By hand:** download `starcore-1.0.1.zip` from [Releases](../../releases/latest) and unpack it into
+**By hand:** download `starcore-1.0.2.zip` from [Releases](../../releases/latest) and unpack it into
 `garrysmod/addons/` (you get the folder `garrysmod/addons/starcore`).
 
 ## Bugs, problems and wishes
@@ -30,14 +30,15 @@ Please use [Issues](../../issues): pick *Bug report* or *Wish or idea*. On the S
 
 ### Flight
 - Hover, height lock, WASD, turn, climb and dive, boost - or steer with the mouse
-- Your own keys for look around (Alt: hold or tap), mouse steering, hover and freeze
+- Keys you can change for looking around (Alt: hold or tap), mouse steering, hover, freeze, tractor beam (grab, pull in, push away), cloak and docking
 - Walk around the bridge while the ship flies: nobody slides off
 - Autopilot: fly to a point or follow a target, climbing over obstacles on the way
+- Carriers: small ships dock in bigger ones and fly and jump with them
 - Hyperspace jumps to saved marks or coordinates, with safety checks before every jump, and three jump effects to choose from
 
 ### Combat and crew
 - Radar with friend and foe, auto-defence, aim with lead for any Wire weapon that has a Fire input (CAP turrets, cannons, rail guns, Wire turrets)
-- Shields, cloak, tractor beam, self-destruct
+- Shields, cloak, self-destruct, a tractor beam you can see that grabs what you look at, pulls it in or pushes it away
 - Crew seats: pilot, gunner, engineer, passenger. Hull points from the ship's mass, repair tool, engineers repair on board
 - Owner, crew and friends are never targeted
 
@@ -46,7 +47,8 @@ With Ascension Gates (or CAP, CAP Enhanced, EAP): the ship's own gate and iris, 
 
 ### Looks and comfort
 - 12 core designs in four families: reactor, crystal, alien and military - swap a placed core's look whenever the ship is landed
-- Pilot HUD and ship screens with true speed and height, in your own units (metres, feet or game units)
+- Every ship has a name, a hull number and a class (shuttle to capital ship), shown on radar, HUD and screens
+- Pilot HUD in three looks and ship screens with true speed and height, in your own units (metres, feet or game units)
 - One window for everything, which stays open while you fly
 - Wire inputs and outputs for E2 fans
 

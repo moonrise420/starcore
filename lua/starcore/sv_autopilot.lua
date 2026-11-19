@@ -6,6 +6,7 @@ function StarCore.AutopilotSet(core, target, follow)
 		return true
 	end
 	if core.Sleeping or core.TooBig then return false, core.TooBig and "too_big" or "second_core" end
+	if core.DockedTo then return false, "dock_is_docked" end   -- (2026-11-17)
 	if not core.Helm.on then StarCore.HelmSetOn(core, true) end
 	if core.Helm.frozen then StarCore.SetFrozen(core, false) end
 	core.Autopilot = { pos = isvector(target) and target or nil, ent = IsEntity(target) and target or nil, follow = follow }
@@ -21,6 +22,46 @@ local function goal(core)
 		return ap.ent:GetPos() + Vector(0, 0, up + 300)
 	end
 	return ap.pos
+end
+
+-- 2026-11-17 (owner: outside the spawn city, the gate inside as target, the ship sank forward into the city wall - it
+-- went down to the goal's height at once and only looked straight ahead at its own height). Now it looks along the
+-- whole way to the goal (up to LOOK units ahead): hull traces straight down at points on that line, as wide as the
+-- ship, find the highest thing under it; the ship keeps that height + CLEAR until the stretch is behind it, and only
+-- then sinks to the goal. The goal's own spot does not count (landing there is the point).
+local CLEAR, SCAN_EVERY = 120, 0.2
+local function scanAhead(core, ap, c, g, dist, speed)
+	local mins, maxs = StarCore.ShipBox(core, core:GetAngles())
+	local base = core:GetPos()
+	local r = math.max(maxs.x - mins.x, maxs.y - mins.y) * 0.5 + 16
+	local below = c.z - (base.z + mins.z)                    -- ship centre above its lowest point
+	-- not an obstacle: the ship itself, the followed target, people (a passenger on deck would make it climb forever)
+	local own = {}
+	for _, e in ipairs(core.Parts or {}) do own[e] = true end
+	if IsValid(ap.ent) then own[ap.ent] = true end
+	local filter = function(e) return not (own[e] or e:IsPlayer() or e:IsNPC()) end
+	local up = util.TraceLine({ start = c, endpos = c + Vector(0, 0, 6000), mask = MASK_SOLID_BRUSHONLY })
+	local top = math.max(up.HitPos.z - 20, c.z)              -- (the sky or a ceiling)
+	local dir = Vector(g.x - c.x, g.y - c.y, 0):GetNormalized()
+	local look = math.min(dist - (r + 100), math.max(speed * 3, 1500))
+	local step = math.max(r * 1.5, 120)
+	local safe, safeNear = -math.huge, -math.huge
+	local near = speed * 1.5 + r + 150
+	local d = 0
+	while d <= look do
+		local p = c + dir * d
+		local tr = util.TraceHull({ start = Vector(p.x, p.y, top), endpos = Vector(p.x, p.y, g.z - below - 60),
+			mins = Vector(-r, -r, 0), maxs = Vector(r, r, 1), mask = MASK_SOLID, filter = filter })
+		local need
+		if tr.StartSolid then need = top                       -- reaches the ceiling: as high as it goes
+		elseif tr.Hit then need = tr.HitPos.z + below + CLEAR end
+		if need then
+			safe = math.max(safe, need)
+			if d <= near then safeNear = math.max(safeNear, need) end
+		end
+		d = d + step
+	end
+	ap.safe, ap.safeNear, ap.nextScan = safe, safeNear, CurTime() + SCAN_EVERY
 end
 
 -- returns a pilot-like input table, or nil when the autopilot is off
@@ -64,6 +105,17 @@ function StarCore.AutopilotInput(core)
 	end
 	inp.up = math.Clamp(dz / 250, -1, 1)
 	if ap.precise and math.abs(dz) < 150 then inp.up = math.Clamp(dz / 60, -0.4, 0.4) end -- gentle touchdown
+	-- the way ahead: keep the height it needs, climb first when something higher is close (scanAhead above)
+	local r = core.LocalMins and (core.LocalMaxs - core.LocalMins):Length2D() * 0.5 or 100
+	if dist > r + 150 then
+		if (ap.nextScan or 0) <= CurTime() then scanAhead(core, ap, c, g, dist, (core.Settings.speed or 800)) end
+		if ap.safe and ap.safe > g.z then
+			inp.up = math.max(inp.up, math.Clamp((ap.safe - c.z) / 250, -1, 1))   -- never sink below it, climb to it
+		end
+		if ap.safeNear and c.z < ap.safeNear - 40 then inp.fwd = 0; inp.boost = false end   -- climb before going on
+	else
+		ap.safe, ap.safeNear = nil, nil
+	end
 
 	-- obstacle ahead (the ship's own size, about 1.5 s of flight): climb instead of crashing
 	if inp.fwd > 0 and core.LocalMins then

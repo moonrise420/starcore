@@ -36,6 +36,10 @@ function StarCore.SyncNW(core)
 	core:SetNWInt("starcore_theme", s.theme or 1)
 	-- AGP 2026-11-08: the ship's radar range for the screens (they drew a fixed 15000)
 	core:SetNWFloat("starcore_radar_range", s.radarRange or StarCore.Defaults.radarRange)
+	-- 2026-11-17: name, hull number and class for radar, HUD, screens and other ships' menus (sv_dock.lua)
+	core:SetNWString("starcore_name", isstring(s.name) and s.name or "")
+	core:SetNWString("starcore_regno", isstring(s.regno) and s.regno or "")
+	if StarCore.ShipClassOf then core:SetNWString("starcore_class", StarCore.ShipClassOf(core)) end
 end
 
 function StarCore.Unregister(core)
@@ -84,7 +88,7 @@ function StarCore.Scan(core)
 		for _, e in ipairs(phys) do
 			if not old[e] then
 				local p = e:GetPhysicsObject()
-				if IsValid(p) then p:EnableGravity(false) end
+				if IsValid(p) then p:EnableGravity(false); StarCore.HelmDrag(e, p, true) end
 			end
 		end
 	end
@@ -133,7 +137,11 @@ function StarCore.Scan(core)
 		end
 	end
 	if StarCore.CrewAttach then StarCore.CrewAttach(core) end
+	-- 2026-11-17: the ship's own parts and box (class, docking checks, power); then the ships docked in it join the part
+	-- lists and the box (sv_dock.lua), after everything above has seen only its own parts
+	core.OwnParts, core.OwnMins, core.OwnMaxs = parts, mins, maxs
 	StarCore.SyncNW(core)
+	if StarCore.DockAddCarried then StarCore.DockAddCarried(core) end
 end
 
 -- world-aligned box (relative to a point) that surely contains the ship when the core sits at pos/ang

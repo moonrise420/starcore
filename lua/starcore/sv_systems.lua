@@ -2,9 +2,41 @@
 -- All of them can be switched off for the whole server by the admin (ConVars in sh_config.lua).
 
 -- ===== tractor beam: pull an object to the ship or hold it in front of the ship =====
+-- 2026-11-17 (owner: "could only activate it once for the npc ... got the error that i cant grab what i see ... suddenly
+-- had the whole stargate with ramp from spawn in my tractor beam"): it aimed with a thin line from the player's eyes, not
+-- from the camera the pilot sees (third person, look-around, menu open), and it took anything with physics. Now it picks
+-- what the pilot SEES: the client sends its camera (origin + direction); the best thing near the middle of the view
+-- (an exact hit first, else the closest to the middle within a few degrees, bigger things count bigger), only things
+-- in plain view and in reach. Never: the ship itself, Stargates / DHDs / ramps of others, anything the gate spawner or
+-- the map placed, parented parts. A frozen prop is frozen again where the beam lets it go (like the physics gun).
+-- 2026-11-17 (owner: "allow my own gates and props just everything from myself"): what the ship's owner or its pilot
+-- spawned is always allowed, Stargates, DHDs and ramps too. Never, not even one's own: what the map or the gate spawner
+-- placed, and parts fixed onto something else (a gate's inner ring).
+local NO_TRACTOR = { "^stargate_", "^dhd_", "ramp", "^func_", "^prop_door", "^prop_dynamic", "^env_", "^info_", "^trigger_" }
+local function spawnedBy(ent, ply)
+	if not IsValid(ply) then return false end
+	if ent.CPPIGetOwner then
+		local o = ent:CPPIGetOwner()
+		if IsValid(o) then return o == ply end
+	end
+	if ent.GetCreator and ent:GetCreator() == ply then return true end   -- (sandbox spawning sets it)
+	return ent.GetVar and ent:GetVar("Owner") == ply or false            -- (Stargate pack tools)
+end
+local function tractorClassOK(core, ent)
+	if ent.GateSpawnerSpawned or ent:CreatedByMap() or IsValid(ent:GetParent()) then return false end
+	local pilot = IsValid(core.PilotSeat) and core.PilotSeat:GetDriver() or nil
+	if spawnedBy(ent, core:GetNWEntity("starcore_owner")) or spawnedBy(ent, pilot) then return true end
+	local cls = ent:GetClass()
+	for _, pat in ipairs(NO_TRACTOR) do if cls:find(pat) then return false end end
+	if ent.IsStargate or ent.IsDHD or ent.IsRamp then return false end
+	return true
+end
+
 local function tractorAllowed(core, ent)
 	if not IsValid(ent) or ent:IsWorld() or StarCore.PartCore[ent] == core then return false, "tractor_bad_target" end
+	if not ent:IsPlayer() and not ent:IsNPC() and not tractorClassOK(core, ent) then return false, "tractor_bad_target" end
 	if ent:IsPlayer() then
+		if ent:InVehicle() then return false, "tractor_bad_target" end
 		local c = StarCore.ContactOf(core, ent)
 		if not StarCore.CV.tractorPlayers:GetBool() and not (c and (c.iff == StarCore.IFF.own or c.iff == StarCore.IFF.friend or c.iff == StarCore.IFF.crew)) then
 			return false, "tractor_not_allowed"
@@ -18,8 +50,64 @@ local function tractorAllowed(core, ent)
 	return true
 end
 
+-- the best thing to grab near the middle of a view (origin, direction). Returns the entity, or nil and why not.
+local PICK_DEG = 7
+function StarCore.TractorPick(core, origin, dir, viewer)
+	local range = StarCore.CV.tractorRange:GetFloat()
+	local center = StarCore.ShipCenter(core)
+	-- not in the way: the ship itself, the pilot and the pilot's seat (a line from the eyes down to something below the
+	-- middle of the view went through the pilot's own body - 2026-11-17 test)
+	local ownSet = {}
+	for _, e in ipairs(core.Parts or {}) do ownSet[e] = true end
+	if IsValid(viewer) then
+		ownSet[viewer] = true
+		if viewer:InVehicle() then ownSet[viewer:GetVehicle()] = true end
+	end
+	local own = function(e) return not ownSet[e] end
+	dir = dir:GetNormalized()
+	-- what the middle of the view hits first (people too)
+	local tr = util.TraceLine({ start = origin, endpos = origin + dir * (range + center:Distance(origin)), filter = own, mask = MASK_SHOT })
+	if IsValid(tr.Entity) and tractorAllowed(core, tr.Entity) then return tr.Entity end
+	local best, bestScore, why = nil, math.huge, "tractor_nothing"
+	for _, e in ipairs(ents.FindInSphere(center, range)) do
+		if IsValid(e) and StarCore.PartCore[e] ~= core and (e:IsPlayer() or e:IsNPC() or IsValid(e:GetPhysicsObject())) then
+			local to = e:WorldSpaceCenter() - origin
+			local dist = to:Length()
+			if dist > 1 then
+				local deg = math.deg(math.acos(math.Clamp(to:Dot(dir) / dist, -1, 1)))
+				local size = math.deg(math.atan((e:OBBMaxs() - e:OBBMins()):Length() * 0.5 / dist))
+				local score = deg - size
+				if score < PICK_DEG and score < bestScore then
+					local ok, whyNot = tractorAllowed(core, e)
+					if ok then
+						-- in plain view: nothing solid between the camera and it (the ship itself does not count)
+						local los = util.TraceLine({ start = origin, endpos = e:WorldSpaceCenter(), filter = own, mask = MASK_SOLID })
+						if not los.Hit or los.Entity == e then best, bestScore = e, score end
+					elseif whyNot ~= "tractor_bad_target" then
+						why = whyNot
+					end
+				end
+			end
+		end
+	end
+	if best then return best end
+	if IsValid(tr.Entity) and not tr.Entity:IsWorld() then
+		local _, whyNot = tractorAllowed(core, tr.Entity)
+		return nil, whyNot or why
+	end
+	return nil, why
+end
+
+local function release(tb)
+	local ent = tb and tb.ent
+	if not IsValid(ent) or ent:IsPlayer() or ent:IsNPC() or tb.mode == "push" then return end   -- (pushed away: it flies on)
+	local p = ent:GetPhysicsObject()
+	if IsValid(p) and tb.wasFrozen then p:SetVelocity(Vector(0, 0, 0)); p:EnableMotion(false) end
+end
+
 function StarCore.TractorSet(core, ent, mode)
 	if not ent then
+		release(core.Tractor)
 		core.Tractor = nil
 		core:SetNWEntity("starcore_tractor", NULL)
 		return true
@@ -27,9 +115,15 @@ function StarCore.TractorSet(core, ent, mode)
 	if not StarCore.CV.allowTractor:GetBool() then return false, "disabled_by_server" end
 	local ok, why = tractorAllowed(core, ent)
 	if not ok then return false, why end
+	-- the same thing again (another button, the Wire value changed): only the mode changes
+	local same = core.Tractor and core.Tractor.ent == ent
+	if core.Tractor and not same then release(core.Tractor) end
 	local dist = ent:GetPos():Distance(StarCore.ShipCenter(core))
-	core.Tractor = { ent = ent, mode = mode or "hold", hold = math.max(dist, 150) }
+	local p = ent:GetPhysicsObject()
+	local wasFrozen = same and core.Tractor.wasFrozen or (not ent:IsPlayer() and not ent:IsNPC() and IsValid(p) and not p:IsMotionEnabled())
+	core.Tractor = { ent = ent, mode = mode or "hold", hold = math.max(dist, 150), wasFrozen = wasFrozen }
 	core:SetNWEntity("starcore_tractor", ent)
+	core:EmitSound("ambient/machines/thumper_startup1.wav", 70, 160, 0.5)
 	return true
 end
 
@@ -37,13 +131,21 @@ function StarCore.TractorThink(core)
 	local tb = core.Tractor
 	if not tb then return end
 	local ent = tb.ent
-	if not IsValid(ent) or ent:GetPos():Distance(StarCore.ShipCenter(core)) > StarCore.CV.tractorRange:GetFloat() * 1.2 then
+	if not IsValid(ent) or ent:GetPos():Distance(StarCore.ShipCenter(core)) > StarCore.CV.tractorRange:GetFloat() * 1.2
+		or not StarCore.CV.allowTractor:GetBool() or (ent:IsPlayer() and (not ent:Alive() or ent:InVehicle())) then
 		StarCore.TractorSet(core, nil)
 		return
 	end
 	local c = StarCore.ShipCenter(core)
 	local shipAng = core:LocalToWorldAngles(core.Helm and core.Helm.refAng or Angle())
 	if tb.mode == "pull" then tb.hold = math.max(tb.hold - 400 * FrameTime(), (core:GetNWVector("starcore_size"):Length() * 0.5) + 100) end
+	-- 2026-11-17 (owner: "push would be great too for tractor beam"): pushed away faster and faster; at the end of the
+	-- beam's reach it lets go and the thing flies on
+	if tb.mode == "push" then
+		tb.pushSpeed = math.min((tb.pushSpeed or 300) + 900 * FrameTime(), 1500)
+		tb.hold = tb.hold + tb.pushSpeed * FrameTime()
+		if tb.hold >= StarCore.CV.tractorRange:GetFloat() * 0.95 then StarCore.TractorSet(core, nil) return end
+	end
 	local want = c + Angle(0, shipAng.y, 0):Forward() * tb.hold
 	local shipVel = core.Helm and core.Helm.vel or Vector(0, 0, 0)
 	local vel = (want - ent:WorldSpaceCenter()) * 3 + shipVel

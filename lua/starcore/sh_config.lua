@@ -43,6 +43,9 @@ if CLIENT then
 	-- every player picks how jumps look for them: 1 = light streak (default), 2 = instant flash, 3 = portal window
 	CreateClientConVar("starcore_jump_style", "1", true, false, "StarCore jump look: 1 light streak, 2 flash, 3 portal", 1, 3)
 	CreateClientConVar("starcore_hud", "1", true, false, "Show the StarCore pilot HUD", 0, 1)
+	-- 2026-11-17 (owner: the HUD next to the health box, two rows, "4 different variations"; then "i want style 4 as
+	-- default"), drawn in cl_hud.lua
+	CreateClientConVar("starcore_hud_look", "1", true, false, "StarCore pilot HUD look: 1 slim (default), 2 ship theme, 3 panels with bars", 1, 3)
 	CreateClientConVar("starcore_unit_distance", "0", true, false, "StarCore distance/speed unit: 0 auto, 1 metres, 2 feet, 3 game units", 0, 3)
 	-- sent to the server (userinfo): the helm reads them for the pilot
 	CreateClientConVar("starcore_mouse_steer", "0", true, true, "StarCore: steer the ship with the mouse in the pilot seat (X turns, Y pitches)", 0, 1)
@@ -55,6 +58,15 @@ if CLIENT then
 	CreateClientConVar("starcore_key_mouse", tostring(KEY_M), true, false, "StarCore: key to switch mouse steering on/off (0 = none)")
 	CreateClientConVar("starcore_key_hover", tostring(KEY_H), true, false, "StarCore: key to switch hover on/off (0 = none)")
 	CreateClientConVar("starcore_key_freeze", tostring(KEY_J), true, false, "StarCore: key to freeze / unfreeze the ship (0 = none)")
+	-- 2026-11-17 (owner: "also for traktorstrahl some keybind ... also for cloak"): H J K L in one row
+	CreateClientConVar("starcore_key_tractor", tostring(KEY_K), true, false, "StarCore: key for the tractor beam: grab what you look at / let go (0 = none)")
+	CreateClientConVar("starcore_key_cloak", tostring(KEY_L), true, false, "StarCore: key to cloak / decloak the ship (0 = none)")
+	-- 2026-11-18 (owner: "that key thing for push and pull the traktorstrahl"): I = pull in, O = push out (free in
+	-- Garry's Mod's default keys and in none of our addons)
+	CreateClientConVar("starcore_key_tractor_pull", tostring(KEY_I), true, false, "StarCore: key for the tractor beam: pull in (again = just hold) (0 = none)")
+	CreateClientConVar("starcore_key_tractor_push", tostring(KEY_O), true, false, "StarCore: key for the tractor beam: push away (again = just hold) (0 = none)")
+	-- 2026-11-17 (owner: carriers - "do 1 it sounds great"): dock into the bigger ship you are in / undock
+	CreateClientConVar("starcore_key_dock", tostring(KEY_N), true, false, "StarCore: key to dock into a bigger ship / undock (0 = none)")
 	CreateClientConVar("starcore_looking", "0", false, true, "StarCore: set by the look-around key (the helm then ignores the mouse)", 0, 1)
 end
 
@@ -84,6 +96,40 @@ StarCore.Defaults = {
 	shieldFreq = -1,    -- CAP shield frequency 0..1500 (-1 = leave it)
 	theme = 1,          -- look of screens, menu accents and HUD (see StarCore.Themes)
 	destructSize = 2,   -- self-destruct blast: 1 small, 2 medium, 3 large, 4 XL, 5 XXL (see StarCore.DestructSizes)
+	name = "",          -- ship name (a new core gets a random one, sv_dock.lua), shown on radar, HUD and screens
+	regno = "",         -- hull number, e.g. "SC-1042" (tells two ships with the same name apart)
+	class = "auto",     -- "auto" (from length and weapons) or one of StarCore.ShipClasses
+}
+
+-- ship names and classes (2026-11-17, owner: "Ship names and classes ... the name field should be free writable").
+-- The class comes from the ship's length and whether it has weapons, unless the owner picks one: a big ship without
+-- weapons is a freighter, with weapons a cruiser or capital ship. Carrier and station only when picked by hand.
+StarCore.ShipClasses = { "shuttle", "transport", "freighter", "fighter", "frigate", "cruiser", "capital", "carrier", "station" }
+-- (owner 2026-11-17: "should we do a max name length? so the hud never escalates to big?": 24 letters, and the HUD,
+-- screens and radar show at most StarCore.NameShow of them)
+StarCore.NameMax, StarCore.RegNoMax, StarCore.NameShow = 20, 12, 20   -- (owner: "max ship name is 20 caracters and not more")
+function StarCore.AutoClass(length, armed)
+	if armed then
+		if length < 500 then return "fighter" elseif length < 1200 then return "frigate" elseif length < 3000 then return "cruiser" end
+		return "capital"
+	end
+	if length < 500 then return "shuttle" elseif length < 1500 then return "transport" end
+	return "freighter"
+end
+function StarCore.ValidClass(id)
+	if id == "auto" then return true end
+	for _, c in ipairs(StarCore.ShipClasses) do if c == id then return true end end
+	return false
+end
+-- names a new core may get (our own list; no ship names from films or series)
+StarCore.ShipNames = {
+	"Kestrel", "Halcyon", "Wayfarer", "Nightingale", "Polaris", "Meridian", "Vigilant", "Morning Star", "Silver Wake",
+	"Lantern", "Far Horizon", "Ember", "Stormcrow", "Starling", "Northwind", "Quiet Thunder", "Solace", "Brightwater",
+	"Ironbark", "Pathfinder", "Wanderer", "Blue Heron", "Long Shadow", "Driftwood", "Sentinel", "Cinder", "Seraph",
+	"Mistral", "Copper Sun", "Arrowhead", "Tidewalker", "Lodestar", "Vesper", "Greyhound", "Skylark", "Tempest",
+	"Highland", "Radiant", "Dawnlight", "Stillwater", "Ravenwing", "Amber Comet", "Pale Moon", "Old Faithful",
+	"Graceful Fury", "Second Chance", "Free Spirit", "Hearthstone", "Swift Answer", "Glimmer", "Bulwark", "Corona",
+	"Nomad", "Zephyr", "Kingfisher", "Harbinger", "Daybreak", "Wild Rose", "Steadfast", "Deepwater",
 }
 
 -- self-destruct sizes: radius factor and blast damage (the damage is capped by starcore_selfdestruct_damage)

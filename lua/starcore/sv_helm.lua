@@ -39,9 +39,24 @@ function StarCore.FrontYaw(core)
 	return IsValid(core.PilotSeat) and seatYaw(core.PilotSeat) or core:GetAngles().y
 end
 
+-- 2026-11-18 (owner: "when i press forward it makes a little wobble to the left ... back a wobble to the right"): while the
+-- helm flies, the game's air drag is off on every part. It pulled each part on its own, and the weld turned that into a
+-- turn of the whole ship when the parts were not lined up (test ptwobble: core 25 units beside the seat, 3.4 degrees).
+-- The helm sets the speed itself; the drag comes back as it was when the helm lets go.
+function StarCore.HelmDrag(e, p, on)
+	if on then
+		if e.StarCoreDrag == nil then e.StarCoreDrag = p:IsDragEnabled() end
+		p:EnableDrag(false)
+	elseif e.StarCoreDrag ~= nil then
+		p:EnableDrag(e.StarCoreDrag)
+		e.StarCoreDrag = nil
+	end
+end
+
 function StarCore.HelmRelock(core)
 	local yaw = StarCore.FrontYaw(core)
 	core.Helm.refAng = core:WorldToLocalAngles(Angle(0, yaw, 0))
+	core.Helm.holdYaw = nil
 	core.Helm.targetZ = nil
 	core.Helm.vel = Vector(0, 0, 0)
 	core.Helm.angvel = Vector(0, 0, 0)
@@ -49,7 +64,7 @@ end
 
 function StarCore.HelmSetOn(core, on)
 	if not IsValid(core) or not core.Helm then return end
-	if on and (core.Sleeping or core.TooBig or core.Disabled) then return end
+	if on and (core.Sleeping or core.TooBig or core.Disabled or core.DockedTo) then return end   -- (docked: the big ship flies it)
 	core.Helm.on = on
 	core.Helm.idle = 0
 	core:SetNWBool("starcore_hover", on)
@@ -61,6 +76,7 @@ function StarCore.HelmSetOn(core, on)
 		local p = IsValid(e) and e:GetPhysicsObject()
 		if IsValid(p) then
 			p:EnableGravity(not on)
+			StarCore.HelmDrag(e, p, on)
 			if on then p:EnableMotion(true) end
 			p:Wake()
 		end
@@ -152,7 +168,10 @@ StarCore.ReadInput = readInput -- tests replace this to simulate a pilot
 
 function StarCore.HelmThink(core)
 	local h = core.Helm
-	if not h or not h.on or core.Sleeping or core.TooBig or not core.LocalMins then return end
+	if not h or not h.on or core.Sleeping or core.TooBig or core.DockedTo or not core.LocalMins then return end
+	-- in a Stargate's wormhole (Ascension Gates holds the whole ship until it comes out of the far gate): hands off
+	local p1 = core.PhysParts and core.PhysParts[1]
+	if core.AGPRideWith or (IsValid(p1) and p1.AGPRideWith) then return end
 	local cp = core:GetPhysicsObject()
 	if not IsValid(cp) then return end
 	local s = core.Settings or Defaults
@@ -209,6 +228,15 @@ function StarCore.HelmThink(core)
 
 	-- angular (degrees per second, world space): turn input + keep the ship level
 	local yawRate = s.turn * inp.turn
+	-- no turn input: the nose stays where the last turn ended (2026-11-18, owner: the ship turned a little on W / S);
+	-- the heading is taken once the turn has run out, so letting go of a turn never swings it back
+	if math.abs(inp.turn or 0) > 0.01 then
+		h.holdYaw = nil
+	elseif not h.holdYaw then
+		if math.abs((h.angvel or vector_origin).z) < 2 then h.holdYaw = shipAng.y end
+	else
+		yawRate = math.Clamp(math.NormalizeAngle(h.holdYaw - shipAng.y) * 3, -20, 20)
+	end
 	local up = shipAng:Up()
 	local wantUp = Angle(pitch, shipAng.y, h.bank):Up() -- level, or tilted to the mouse pitch and the bank
 	local axis = up:Cross(wantUp)
@@ -225,15 +253,29 @@ function StarCore.HelmThink(core)
 	h.angvel = Vector(approach(h.angvel.x, wantW.x, step * 2), approach(h.angvel.y, wantW.y, step * 2), approach(h.angvel.z, wantW.z, step))
 	local wRad = h.angvel * (math.pi / 180)
 
-	-- move every part like one rigid body
+	-- move every part like one rigid body. The parts of ships docked in this one are left to StarCore.DockThink, run
+	-- right after for each of them: it keeps them on their place (2026-11-18: this loop also set them, without making
+	-- up their small way off; when this core thought after the docked one, the docked ship slid off in a turn and was
+	-- put back hard - it shook in 3 of 6 test runs)
+	local docked = core:GetNWInt("starcore_docked_ships", 0) > 0 and StarCore.DockedShips and StarCore.DockedShips(core)
+	local skip
+	if docked and #docked > 0 then
+		skip = {}
+		for _, d in ipairs(docked) do
+			for e in pairs(d.DockRel or {}) do skip[e] = true end
+		end
+	end
 	for _, e in ipairs(core.PhysParts) do
 		local p = IsValid(e) and e:GetPhysicsObject()
-		if IsValid(p) then
+		if IsValid(p) and not (skip and skip[e]) then
 			local r = p:LocalToWorld(p:GetMassCenter()) - pivot
 			p:SetVelocity(h.vel + wRad:Cross(r))
 			p:SetAngleVelocity(p:WorldToLocalVector(h.angvel))
 			p:Wake()
 		end
+	end
+	if skip then
+		for _, d in ipairs(docked) do StarCore.DockThink(d) end
 	end
 
 	-- idle: freeze the parked ship to save server time
@@ -281,6 +323,8 @@ end)
 hook.Add("PlayerEnteredVehicle", "StarCore.Helm", function(ply, veh)
 	for core in pairs(StarCore.Cores) do
 		if IsValid(core) and core.PilotSeat == veh and StarCore.CanControl(core, ply) then
+			-- docked in a bigger ship (sv_dock.lua): its helm stays off, the dock key lets go
+			if core.DockedTo then StarCore.Notify(ply, "dock_docked_hint", NOTIFY_HINT, StarCore.ShipLabel(core.DockedTo)) return end
 			if not core.Helm.on then StarCore.HelmSetOn(core, true) else StarCore.HelmRelock(core) end
 			-- the keys hint only the first time per game (2026-11-17, owner: "first time ok, but not always when entering")
 			if not ply.StarCorePilotHinted then ply.StarCorePilotHinted = true; StarCore.Notify(ply, "pilot_hint", NOTIFY_HINT) end

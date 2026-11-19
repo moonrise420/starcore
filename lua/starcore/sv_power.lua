@@ -94,7 +94,7 @@ function StarCore.PowerNets(core)
 	local RD = not P and rdNet()
 	if not P and not RD then return nil end
 	local nets, inNet, done, counted = {}, {}, {}, {}
-	for _, e in ipairs(core.Parts or {}) do
+	for _, e in ipairs(core.OwnParts or core.Parts or {}) do   -- (2026-11-17: not the docked ships' parts)
 		if P and IsValid(e) and P.Parts[e] and not done[e] then pgAdd(P, e, nets, inNet, done, counted)
 		elseif RD and IsValid(e) then rdAdd(RD, e, nets, inNet, done) end
 	end

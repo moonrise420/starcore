@@ -190,7 +190,9 @@ local function drawPage(ent, core, w, h, th)
 	draw.RoundedBox(12, 0, 0, w, h, th.bg)
 	draw.RoundedBox(12, 0, 0, w, 46, th.accent)
 	local titles = { "screen_overview", "tab_jump", "tab_radar", "screen_weapons", "tab_gates", "tab_power" }
-	draw.SimpleText("StarCore · " .. T(titles[page] or "screen_overview"), "StarCoreScreenBig", 14, 6, th.title)
+	-- 2026-11-17: the ship's name in the title (owner: ship names and classes)
+	local ship = IsValid(core) and StarCore.ShipTitle and StarCore.ShipTitle(core, false) or ""
+	draw.SimpleText((ship ~= "" and ship or "StarCore") .. " · " .. T(titles[page] or "screen_overview"), "StarCoreScreenBig", 14, 6, th.title)
 	if not IsValid(core) then
 		draw.SimpleText(T("screen_no_core"), "StarCoreScreen", w / 2, h / 2, th.warn, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 		return

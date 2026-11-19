@@ -97,6 +97,7 @@ function ENT:Initialize()
 	self:SetupDesign(self.Design or designOfModel(self:GetModel()))   -- AGP 2026-11-08: a pasted core keeps its model
 	self:SetUseType(SIMPLE_USE)
 	self.Settings = table.Copy(StarCore.Defaults)
+	if StarCore.IdentityNew then StarCore.IdentityNew(self) end   -- (2026-11-17: a random name and a hull number)
 	self.Marks = self.Marks or {}
 	self.Parts = { self }
 	self.Seats = {}
@@ -152,6 +153,7 @@ function ENT:Think()
 		self.NextSG = now + 0.5
 		if StarCore.SG and StarCore.SG.Available() then StarCore.SG.Think(self) end
 	end
+	if StarCore.DockThink then StarCore.DockThink(self) end
 	StarCore.HelmThink(self)
 	StarCore.FTLThink(self)
 	StarCore.CombatThink(self)
@@ -164,6 +166,7 @@ function ENT:Think()
 end
 
 function ENT:OnRemove()
+	if self.DockedTo and StarCore.Undock then StarCore.Undock(self, true) end   -- (2026-11-17: the lock goes with it)
 	StarCore.HelmSetOn(self, false)
 	if StarCore.StopWeapons then StarCore.StopWeapons(self) end
 	if StarCore.CloakSet and self.Cloaked then StarCore.CloakSet(self, false) end
@@ -182,6 +185,7 @@ local RUNTIME = {
 	"Tractor", "Transporter", "NextBeam", "Cloaked", "CloakSaved", "ExtraParts", "Excluded", "PilotSeat", "SeatRoles",
 	"Parts", "PhysParts", "Seats", "Screens", "Shields", "PowerSources", "RDPart", "Gate", "Iris", "SGOutbound", "SGIrisByUs",
 	"Sleeping", "TooBig", "Destroyed", "Mass", "LocalMins", "LocalMaxs", "CombatMarked",
+	"DockedTo", "DockRoot", "DockRel", "OwnParts", "OwnMins", "OwnMaxs",   -- (2026-11-17: docking, sv_dock.lua; a pasted ship is not docked)
 	"PowerRate", "LastStored", "LastStoredT", "LowPowerWarned", "ShieldWasUp", "ShieldOffByUs", "NextAutoShield",
 	"NextScan", "NextSG", "NextPower", "NextCrew", "NextWireOut", "WireLast", "VoiceLast",
 }
@@ -288,6 +292,7 @@ function ENT:PostEntityPaste(ply, ent, created)
 	end
 	-- AGP 2026-11-08: a new ship: its own running state, its own Wire ports, and the wires into it made again
 	freshState(self)
+	if StarCore.IdentityPasted then StarCore.IdentityPasted(self) end   -- (2026-11-17: name kept, a new number if taken)
 	if self.Disabled then self:SetNWBool("starcore_disabled", true) end   -- (the hull damage came along: so does being disabled)
 	ownWirePorts(self, created)
 	local wireInfo = self.EntityMods and self.EntityMods.WireDupeInfo

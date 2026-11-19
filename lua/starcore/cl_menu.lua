@@ -200,10 +200,33 @@ STYLE.DListView = function(p)
 end
 
 -- vgui.Create + the theme look
+-- 2026-11-18 (owner: button texts cut off, a bigger window did not help): a button given a width is never narrower than
+-- its text (in every language), also when its text changes later
+local function fitButton(b)
+	local setW, setT = b.SetWide, b.SetText
+	local function fit(self)
+		local want = self.StarCoreWantWide
+		if not want then return end
+		surface.SetFont(self:GetFont() or "DermaDefault")
+		local w = math.max(want, (surface.GetTextSize(self:GetText() or "")) + 14)
+		if self:GetWide() ~= w then setW(self, w) end
+	end
+	b.SetWide = function(self, w) self.StarCoreWantWide = w fit(self) end
+	b.SetText = function(self, t) setT(self, t) fit(self) end
+end
+
 local function create(class, parent)
 	local p = vgui.Create(class, parent)
 	if STYLE[class] then STYLE[class](p) end
+	if class == "DButton" then fitButton(p) end
 	return p
+end
+-- 2026-11-17 (owner: the core design list of the StarCore tool showed white text on a white field - the menu skin of the
+-- player decides the tool page's colours): the list paints itself in StarCore's colours, field and drop-down
+function StarCore.StyleCombo(p)
+	if not IsValid(p) or p.StarCoreStyled then return end
+	p.StarCoreStyled = true
+	STYLE.DComboBox(p)
 end
 
 net.Receive("starcore_notify", function()
@@ -239,6 +262,11 @@ local function label(parent, text, font)
 	l:DockMargin(4, 4, 4, 0)
 	l:SetFont(font or "DermaDefault")
 	l:SetText(text)
+	-- 2026-11-18 (owner: texts cut off): a text longer than the window is wide goes onto the next line; the labels that
+	-- change their text (their own Think) keep their height right through SizeToContents
+	l:SetWrap(true)
+	l:SetAutoStretchVertical(true)
+	l.SizeToContents = function(self) self:SizeToContentsY() end
 	l:SizeToContents()
 	return l
 end
@@ -254,6 +282,19 @@ local function slider(parent, key, min, max, dec, unit)
 	elseif unit == "speed" then text = text .. " (" .. U.Name() .. "/s)"
 	elseif unit == "accel" then text = text .. " (" .. U.Name() .. "/s²)" end
 	s:SetText(text)
+	s:SetTooltip(text)
+	-- 2026-11-18 (owner: texts cut off): the text gets up to 62 % of the row, and a longer one goes onto two lines
+	local layout = s.PerformLayout
+	s.PerformLayout = function(self, w, h)
+		if layout then layout(self, w, h) end
+		if w < 200 then return end
+		surface.SetFont(self.Label:GetFont() or "DermaDefault")
+		local need = (surface.GetTextSize(self.Label:GetText() or "")) + 8
+		local lw = math.max(self.Label:GetWide(), math.min(need, math.floor(w * 0.62)))
+		self.Label:SetWide(lw)
+		self.Label:SetWrap(need > lw)
+		self.Label.StarCoreWrapped = need > lw
+	end
 	s:SetMinMax(min / per, max / per)
 	s:SetDecimals(dec or ((max - min) / per < 60 and 1 or 0))
 	s:SetValue((state.settings[key] or StarCore.Defaults[key]) / per)
@@ -303,10 +344,25 @@ local function buildHelm(sheet)
 		if current:GetNWBool("starcore_frozen") then txt = txt .. " · " .. T("frozen") end
 		if current:GetNWBool("starcore_toobig") then txt = T("too_big") end
 		if current:GetNWBool("starcore_sleeping") then txt = T("second_core") end
+		if IsValid(current:GetNWEntity("starcore_docked")) then txt = T("hud_docked", current:GetNWString("starcore_docked_name", "?")) end
 		self:SetText(txt)
 		self:SizeToContents()
 	end
 	button(p, T("btn_hover"), function() send("hover", { on = not current:GetNWBool("starcore_hover") }) end)
+	-- 2026-11-17 (owner: carriers): dock into the bigger ship this one sits in / let go; a carrier lets all go
+	local dk = button(p, T("btn_dock"), function() send("dock", {}) end)
+	local carried = liveLabel(p, function() return T("dock_carrying", current:GetNWInt("starcore_docked_ships")) end)
+	local rel = button(p, T("btn_undock_all"), function() send("undock_all", {}) end)
+	carried:SetVisible(false)
+	rel:SetVisible(false)
+	-- (hidden panels do not think: the always shown dock button shows / hides the carrier line)
+	dk.Think = function(self)
+		if not IsValid(current) then return end
+		local t = IsValid(current:GetNWEntity("starcore_docked")) and T("btn_undock") or T("btn_dock")
+		if self:GetText() ~= t then self:SetText(t) end
+		local show = current:GetNWInt("starcore_docked_ships") > 0
+		if rel:IsVisible() ~= show then rel:SetVisible(show); carried:SetVisible(show); rel:GetParent():InvalidateLayout() end
+	end
 	button(p, T("btn_freeze"), function() send("freeze", { on = not current:GetNWBool("starcore_frozen") }) end)
 	-- 2026-11-14 (owner: "how can the player set for the starcore were oriantation forward is"): stand facing the ship's nose
 	button(p, T("btn_front"), function() send("front", {}) end)
@@ -580,13 +636,38 @@ net.Receive("starcore_contacts", function()
 	hook.Run("StarCore.ContactsUpdated", core)
 end)
 
+-- 2026-11-17 (owner: ship names and classes): "Kestrel SC-1042 · Fighter" (empty when the ship has neither name nor number);
+-- withClass = false leaves the class out
+function StarCore.ShipTitle(core, withClass)
+	if not IsValid(core) then return "" end
+	local name, no = core:GetNWString("starcore_name", ""), core:GetNWString("starcore_regno", "")
+	local n = utf8.len(name)
+	if n and n > StarCore.NameShow then   -- (long names end in "…" here; the Ship tab shows the whole name)
+		local out, k = {}, 0
+		for _, c in utf8.codes(name) do
+			k = k + 1
+			if k > StarCore.NameShow - 1 then break end
+			out[k] = utf8.char(c)
+		end
+		name = table.concat(out) .. "…"
+	end
+	local s = name
+	if no ~= "" then s = s ~= "" and (s .. " " .. no) or no end
+	local cls = core:GetNWString("starcore_class", "")
+	if s ~= "" and cls ~= "" and withClass ~= false then s = s .. " · " .. T("class_" .. cls) end
+	return s
+end
+
 function StarCore.ContactName(c)
 	local e = c.ent
 	if not IsValid(e) then return "?" end
 	if e:IsPlayer() then return e:Nick() end
 	if c.kind == 3 then
 		local o = e:GetNWEntity("starcore_owner")
-		return T("ship_of", IsValid(o) and o:Nick() or "?")
+		local who = IsValid(o) and o:Nick() or "?"
+		local title = StarCore.ShipTitle(e)
+		if title == "" then return T("ship_of", who) end
+		return title .. " (" .. who .. ")"
 	end
 	if c.kind == 4 then
 		local n = e.GetGateName and e:GetGateName() or ""
@@ -642,9 +723,16 @@ local function buildRadar(sheet)
 	list:DockMargin(6, 0, 0, 0)
 	list:SetMultiSelect(false)
 	list:AddColumn(T("col_contact"))
-	list:AddColumn(T("col_kind")):SetFixedWidth(60)
-	list:AddColumn(T("col_iff")):SetFixedWidth(64)
-	list:AddColumn(T("mark_dist")):SetFixedWidth(56)
+	-- 2026-11-18: each column at least as wide as its longest word in the player's language
+	local function colWide(min, ...)
+		surface.SetFont("DermaDefault")
+		local w = min
+		for _, t in ipairs({ ... }) do w = math.max(w, (surface.GetTextSize(t)) + 12) end
+		return w
+	end
+	list:AddColumn(T("col_kind")):SetFixedWidth(colWide(60, T("col_kind"), T("kind_player"), T("kind_npc"), T("kind_ship"), T("kind_gate")))
+	list:AddColumn(T("col_iff")):SetFixedWidth(colWide(64, T("col_iff"), T("iff_friend"), T("iff_hostile"), T("iff_neutral"), T("iff_own"), T("iff_crew")))
+	list:AddColumn(T("mark_dist")):SetFixedWidth(colWide(56, T("mark_dist"), "99999 m"))
 	local filling = false
 	local function fill()
 		if not IsValid(list) then return end
@@ -713,10 +801,7 @@ local function buildRadar(sheet)
 	end
 	beamButton(T("btn_beam_down"), "beam_down")
 	beamButton(T("btn_beam_aboard"), "beam_aboard")
-	local warp = create("DButton", row2)
-	warp:Dock(FILL)
-	warp:SetText(T("btn_jump_target"))
-	warp.DoClick = function() local id = selId() if id then send("jump", { kind = "contact", id = id }) end end
+	button(p, T("btn_jump_target"), function() local id = selId() if id then send("jump", { kind = "contact", id = id }) end end)
 
 	button(p, T("btn_follow_target"), function() local id = selId() if id then send("autopilot", { kind = "contact", id = id, follow = true }) end end)
 	local auto = create("DCheckBoxLabel", p)
@@ -837,6 +922,64 @@ end
 
 local function buildShip(sheet)
 	local p = create("DScrollPanel", sheet)
+	-- 2026-11-17 (owner: "the name field should be free writable"): name (with a dice for a random one), hull number, class
+	label(p, T("identity_title"), "DermaDefaultBold")
+	local function textField(key, max, labelKey, extra)
+		label(p, T(labelKey))
+		local row = create("DPanel", p)
+		row:Dock(TOP)
+		row:DockMargin(4, 2, 4, 0)
+		row:SetTall(24)
+		row.Paint = nil
+		local e = create("DTextEntry", row)
+		e:Dock(FILL)
+		e:SetValue(state.settings[key] or "")
+		local function commit()
+			local v = e:GetValue()
+			if v ~= (state.settings[key] or "") then send("identity", { [key] = v }) end
+		end
+		e.OnEnter = commit
+		local baseLose = e.OnLoseFocus
+		e.OnLoseFocus = function(self) commit() if baseLose then baseLose(self) end end
+		-- true = this letter is NOT taken (the field is full)
+		e.AllowInput = function(self) local n = utf8.len(self:GetValue() or "") return n ~= nil and n >= max end
+		onReply("identity." .. key, e, function(st)
+			if e:HasFocus() then return end
+			local v = st.settings and st.settings[key]
+			if isstring(v) and v ~= e:GetValue() then e:SetValue(v) end
+		end)
+		if extra then extra(row) end
+		return e
+	end
+	textField("name", StarCore.NameMax, "ship_name", function(row)
+		local dice = create("DButton", row)
+		dice:Dock(RIGHT)
+		dice:DockMargin(4, 0, 0, 0)
+		dice:SetWide(120)
+		dice:SetText(T("btn_name_random"))
+		dice.DoClick = function() send("identity", { random = true }) end
+	end)
+	textField("regno", StarCore.RegNoMax, "ship_regno")
+	label(p, T("ship_class"))
+	local cls = create("DComboBox", p)
+	cls:Dock(TOP)
+	cls:DockMargin(4, 2, 4, 0)
+	local curCls = state.settings.class or "auto"
+	local autoNow = IsValid(current) and current:GetNWString("starcore_class", "") or ""
+	cls:AddChoice(T("class_auto", autoNow ~= "" and curCls == "auto" and T("class_" .. autoNow) or "..."), "auto", curCls == "auto")
+	for _, c in ipairs(StarCore.ShipClasses) do cls:AddChoice(T("class_" .. c), c, curCls == c) end
+	cls.OnSelect = function(_, _, _, v) if not applying and v ~= curCls then curCls = v send("identity", { class = v }) end end
+	onReply("identity.class", cls, function(st)
+		local v = st.settings and st.settings.class
+		if not isstring(v) or v == curCls then return end
+		curCls = v
+		if v == "auto" then cls:ChooseOptionID(1) return end
+		for i, c in ipairs(StarCore.ShipClasses) do if c == v then cls:ChooseOptionID(i + 1) end end
+	end)
+	local ch = label(p, T("class_hint"))
+	ch:SetWrap(true)
+	ch:SetAutoStretchVertical(true)
+	label(p, " ")
 	-- core design: changes the model of this core live (server checks owner/friends, ship landed)
 	label(p, T("design_title"), "DermaDefaultBold")
 	local design = create("DComboBox", p)
@@ -877,8 +1020,11 @@ local function buildShip(sheet)
 	label(p, T("systems_title"), "DermaDefaultBold")
 	local cl = button(p, T("btn_cloak"), function() send("cloak", { on = not current:GetNWBool("starcore_cloaked") }) end)
 	cl.Think = function(self) self:SetText(IsValid(current) and current:GetNWBool("starcore_cloaked") and T("btn_decloak") or T("btn_cloak")) end
-	button(p, T("btn_tractor_hold"), function() send("tractor", { mode = "hold" }) end)
-	button(p, T("btn_tractor_pull"), function() send("tractor", { mode = "pull" }) end)
+	-- 2026-11-17: aimed with the camera the player sees (the middle of the screen), cl_hud.lua StarCore.ViewNow
+	local function view(t) local o, d = StarCore.ViewNow() t.vo, t.vd = o, d return t end
+	button(p, T("btn_tractor_hold"), function() send("tractor", view({ mode = "hold" })) end)
+	button(p, T("btn_tractor_pull"), function() send("tractor", view({ mode = "pull" })) end)
+	button(p, T("btn_tractor_push"), function() send("tractor", view({ mode = "push" })) end)   -- (owner 2026-11-17)
 	button(p, T("btn_tractor_target"), function() send("tractor", { mode = "hold", target = true }) end)
 	button(p, T("btn_tractor_off"), function() send("tractor", { off = true }) end)
 	label(p, T("tractor_hint"))
@@ -949,6 +1095,14 @@ local function buildSettings(sheet)
 	hud:DockMargin(4, 8, 4, 0)
 	hud:SetText(T("show_hud"))
 	hud:SetConVar("starcore_hud")
+	-- 2026-11-17 (owner: "style 2&3 should be choosable if the player wants them"): the HUD's look, each player's own
+	label(p, T("hud_style"))
+	local hs = create("DComboBox", p)
+	hs:Dock(TOP)
+	hs:DockMargin(4, 2, 4, 0)
+	local hcv = GetConVar("starcore_hud_look")
+	for _, i in ipairs({ 1, 2, 3 }) do hs:AddChoice(T("hud_style" .. i), i, hcv:GetInt() == i) end
+	hs.OnSelect = function(_, _, _, v) RunConsoleCommand("starcore_hud_look", tostring(v)) end
 	local voice = create("DCheckBoxLabel", p)
 	voice:Dock(TOP)
 	voice:DockMargin(4, 8, 4, 0)
@@ -1013,6 +1167,11 @@ local function buildSettings(sheet)
 	binder("key_mouse", "starcore_key_mouse")
 	binder("key_hover", "starcore_key_hover")
 	binder("key_freeze", "starcore_key_freeze")
+	binder("key_tractor", "starcore_key_tractor")   -- 2026-11-17 (owner)
+	binder("key_tractor_pull", "starcore_key_tractor_pull")   -- 2026-11-18 (owner)
+	binder("key_tractor_push", "starcore_key_tractor_push")
+	binder("key_cloak", "starcore_key_cloak")
+	binder("key_dock", "starcore_key_dock")   -- 2026-11-17 (owner: carriers)
 	local kh = label(p, T("seatkeys_help"))
 	kh:SetWrap(true)
 	kh:SetAutoStretchVertical(true)
@@ -1151,7 +1310,9 @@ local function refreshTabs()
 end
 
 function build()
-	local tabId, scroll = "helm", {}
+	-- 2026-11-17 (owner: "it should remember what last tab was open" - after leaving the seat or closing the window):
+	-- a new window opens on the tab the player had open last (cookie, per player)
+	local tabId, scroll = cookie.GetString("starcore_menu_tab", "helm"), {}
 	if IsValid(frame) then
 		local active = frame.sheet:GetActiveTab()
 		for id, item in pairs(frame.items or {}) do
@@ -1206,6 +1367,11 @@ function build()
 		end
 	end
 	if frame.items[tabId] then sheet:SetActiveTab(frame.items[tabId].Tab) end
+	sheet.OnActiveTabChanged = function(_, _, new)
+		for id, item in pairs(frame.items or {}) do
+			if item.Tab == new then cookie.Set("starcore_menu_tab", id) end
+		end
+	end
 	-- 2026-11-17 (owner: "i cant move or resize it"): this Think replaced DFrame's own, which does the dragging - so the
 	-- window never moved. Now it calls DFrame's first (title bar drag, bottom-right corner) and adds the edges: the
 	-- left, right and bottom border resize the window (the tabs cover the rest, the border gets the clicks).

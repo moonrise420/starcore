@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.2
+- Carriers: small ships dock in bigger ones (key N) and fly and jump with them
+- Every ship has a name, a hull number and a class, shown on radar, HUD and screens
+- New pilot HUD in three looks
+- Tractor beam: aims where you look, can be seen, pulls in and pushes away (keys K, I, O); cloak key L
+- The autopilot keeps its height over walls; ships fly straight when their parts are not lined up
+- No cut-off texts in the ship window (12 languages), which opens on the last tab; clearer texts
+- Ships go through Stargates in one piece (with Ascension Gates 1.0.1)
+
 ## 1.0.1
 - Admin settings page: spawn menu Utilities > Admin > StarCore - every server setting as a checkbox, slider or choice (only admins can change them)
 - New server setting: hyperspace jumps on/off (starcore_allow_jump)

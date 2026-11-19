@@ -6,6 +6,11 @@ local INPUTS = {
 	"Shield", "Iris", "Dial [STRING]", "Close Gate", "Autopilot", "Autopilot Pos [VECTOR]",
 	-- 2026-11-14: fly by wire like a Gyro-Pod (read by the helm, sv_helm.lua addWire)
 	"Forward", "Turn", "Up", "Strafe", "Pitch", "Boost",
+	-- 2026-11-17 (owner: keys for tractor beam and cloak, "and wire of course"): Cloak 1/0; Tractor 1 = hold, 2 = pull in,
+	-- 3 = push away, 0 = let go - it takes Tractor Entity when wired, else the radar target, else what is straight ahead of the ship
+	"Cloak", "Tractor", "Tractor Entity [ENTITY]",
+	-- 2026-11-17 (owner: carriers): 1 = dock into the bigger ship this one is in, 0 = let go
+	"Dock",
 }
 local OUTPUTS = {
 	"Hover", "Speed", "Altitude", "FTL State", "Power %", "Shield Up", "Shield %", "Hull %", "Target [ENTITY]",
@@ -14,6 +19,10 @@ local OUTPUTS = {
 	"Position [VECTOR]", "Velocity [VECTOR]", "Angle [ANGLE]", "Heading", "Pitch", "Roll",
 	-- 2026-11-16: 1 while the ship is frozen in place (input Freeze, the menu's / screen's Freeze button or the pilot's key) - for a lamp
 	"Frozen",
+	-- 2026-11-17: 1 while cloaked; what the tractor beam holds (NULL = nothing)
+	"Cloaked", "Tractor [ENTITY]",
+	-- 2026-11-17: 1 while docked in a bigger ship; how many ships are docked in this one
+	"Docked", "Docked Ships",
 }
 
 function StarCore.WireSetup(core)
@@ -53,6 +62,33 @@ function StarCore.WireInput(core, name, v)
 	elseif name == "Iris" and StarCore.SG and StarCore.SG.Available() then StarCore.SG.SetIris(core, v ~= 0)
 	elseif name == "Dial" and isstring(v) and v ~= "" and StarCore.SG and StarCore.SG.Available() then StarCore.SG.Dial(core, ply, v, "fast")
 	elseif name == "Close Gate" and rising and StarCore.SG and StarCore.SG.Available() then StarCore.SG.Close(core)
+	elseif name == "Cloak" then
+		local ok, why = StarCore.CloakSet(core, v ~= 0)
+		if not ok and IsValid(ply) then StarCore.Notify(ply, why, NOTIFY_ERROR) end
+	elseif name == "Tractor" then
+		if v == 0 then StarCore.TractorSet(core, nil)
+		else
+			local mode = v >= 3 and "push" or v >= 2 and "pull" or "hold"
+			local held = core.Tractor and core.Tractor.ent
+			if IsValid(held) then core.Tractor.mode = mode   -- (1 -> 2 or 3 while holding: pull it in / push it away)
+			else
+				local ent = core.Inputs["Tractor Entity"] and core.Inputs["Tractor Entity"].Value
+				local why
+				if not IsValid(ent) then ent = IsValid(core.Target) and core.Target or nil end
+				if not IsValid(ent) then
+					local ang = core:LocalToWorldAngles(core.Helm and core.Helm.refAng or Angle())
+					ent, why = StarCore.TractorPick(core, StarCore.ShipCenter(core), ang:Forward())
+				end
+				local ok = false
+				if IsValid(ent) then ok, why = StarCore.TractorSet(core, ent, mode) end
+				if not ok and IsValid(ply) then StarCore.Notify(ply, why or "tractor_nothing", NOTIFY_ERROR) end
+			end
+		end
+	elseif name == "Dock" and StarCore.Dock then
+		if v ~= 0 and not core.DockedTo then
+			local ok, why = StarCore.Dock(core, ply)
+			if not ok and IsValid(ply) then StarCore.Notify(ply, why, NOTIFY_ERROR) end
+		elseif v == 0 and core.DockedTo then StarCore.Undock(core) end
 	elseif name == "Autopilot" and StarCore.AutopilotSet then
 		local pos = core.Inputs["Autopilot Pos"] and core.Inputs["Autopilot Pos"].Value
 		if v ~= 0 and isvector(pos) and pos:LengthSqr() > 0 then StarCore.AutopilotSet(core, pos) else StarCore.AutopilotSet(core, nil) end
@@ -71,6 +107,8 @@ function StarCore.WireOutputs(core)
 	local out = {
 		["Hover"] = core:GetNWBool("starcore_hover") and 1 or 0,
 		["Frozen"] = core:GetNWBool("starcore_frozen") and 1 or 0,
+		["Cloaked"] = core:GetNWBool("starcore_cloaked") and 1 or 0,
+		["Tractor"] = IsValid(core:GetNWEntity("starcore_tractor")) and core:GetNWEntity("starcore_tractor") or NULL,
 		["Speed"] = core:GetNWFloat("starcore_speed"),
 		["Altitude"] = core:GetNWFloat("starcore_alt"),
 		["FTL State"] = core:GetNWInt("starcore_ftl"),
@@ -85,6 +123,8 @@ function StarCore.WireOutputs(core)
 		["Gate Open"] = core:GetNWBool("starcore_gate_open") and 1 or 0,
 		["Iris Closed"] = core:GetNWBool("starcore_iris_closed") and 1 or 0,
 		["Autopilot"] = core:GetNWBool("starcore_autopilot") and 1 or 0,
+		["Docked"] = core.DockedTo and 1 or 0,
+		["Docked Ships"] = core:GetNWInt("starcore_docked_ships"),
 	}
 	-- where the ship is: the core is welded to the hull; the ship's front is the helm's reference (the way W flies), not the
 	-- core's own axes (the core can sit turned in the hull)

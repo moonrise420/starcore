@@ -178,25 +178,71 @@ handlers.autopilot = function(core, ply, d)
 	if not ok then StarCore.Notify(ply, why, NOTIFY_ERROR) end
 end
 
-local function aimed(ply, core)
-	local tr = ply:GetEyeTrace()
-	if ply:InVehicle() then
-		tr = util.TraceLine({ start = ply:GetShootPos(), endpos = ply:GetShootPos() + ply:GetAimVector() * 60000, filter = core.Parts })
+-- 2026-11-17: the tractor aims with the camera the pilot sees (client: cl_hud.lua viewNow); a camera far away from the
+-- ship and the player is not believed (then the player's own eyes)
+local function viewOf(ply, core, d)
+	local o, dir = d.vo, d.vd
+	if isvector(o) and isvector(dir) and dir:LengthSqr() > 0.5 then
+		local reach = core:GetNWVector("starcore_size"):Length() + 3000
+		if o:Distance(StarCore.ShipCenter(core)) <= reach or o:Distance(ply:EyePos()) <= 3000 then return o, dir end
 	end
-	return tr.Entity
+	return ply:EyePos(), ply:GetAimVector()
 end
 
 handlers.tractor = function(core, ply, d)
-	if d.off then StarCore.TractorSet(core, nil) return true end
-	local ent = (d.target and IsValid(core.Target)) and core.Target or aimed(ply, core)
-	local ok, why = StarCore.TractorSet(core, ent, d.mode == "pull" and "pull" or "hold")
-	if not ok then StarCore.Notify(ply, why, NOTIFY_ERROR) end
+	-- off, or the pilot's tractor key while the beam holds something: let go
+	if d.off or (d.toggle and core.Tractor and IsValid(core.Tractor.ent)) then StarCore.TractorSet(core, nil) return true end
+	-- the pull / push key (2026-11-18, owner) while the beam holds something: that thing is pulled / pushed; the same key
+	-- again: it is just held
+	local tb = core.Tractor
+	if d.key and (d.mode == "pull" or d.mode == "push") and tb and IsValid(tb.ent) then
+		local ok, why = StarCore.TractorSet(core, tb.ent, tb.mode == d.mode and "hold" or d.mode)
+		if not ok then StarCore.Notify(ply, why or "tractor_nothing", NOTIFY_ERROR) end
+		return true
+	end
+	local ent, why
+	if d.target then
+		if IsValid(core.Target) then ent = core.Target else why = "no_target" end
+	else
+		local o, dir = viewOf(ply, core, d)
+		ent, why = StarCore.TractorPick(core, o, dir, ply)
+	end
+	local ok = false
+	if ent then ok, why = StarCore.TractorSet(core, ent, (d.mode == "pull" or d.mode == "push") and d.mode or "hold") end
+	if not ok then StarCore.Notify(ply, why or "tractor_nothing", NOTIFY_ERROR) end
 	return true
 end
 
 handlers.cloak = function(core, ply, d)
 	local ok, why = StarCore.CloakSet(core, d.on == true)
 	if not ok then StarCore.Notify(ply, why, NOTIFY_ERROR) end
+	return d.quiet == true   -- (the cloak key of the pilot seat: no menu window comes up)
+end
+
+-- 2026-11-17 (owner: carriers): dock into the bigger ship this one is in, or let go (the pilot's dock key: quiet)
+handlers.dock = function(core, ply, d)
+	if core.DockedTo then
+		StarCore.Undock(core)
+		StarCore.Notify(ply, "dock_undocked", NOTIFY_GENERIC)
+	else
+		local ok, res = StarCore.Dock(core, ply)
+		if ok then StarCore.Notify(ply, "dock_docked", NOTIFY_GENERIC, StarCore.ShipLabel(res))
+		else StarCore.Notify(ply, res, NOTIFY_ERROR) end
+	end
+	return d.quiet == true
+end
+
+-- the big ship lets all its docked ships go
+handlers.undock_all = function(core, ply, d)
+	local list = StarCore.DockedShips(core)
+	for _, c in ipairs(list) do StarCore.Undock(c) end
+	StarCore.Notify(ply, "dock_released", NOTIFY_GENERIC, #list)
+end
+
+-- 2026-11-17 (owner: "the name field should be free writable"): name, hull number, class (owner, friends, admins)
+handlers.identity = function(core, ply, d)
+	if not StarCore.CanControl(core, ply, true) then StarCore.Notify(ply, "no_permission", NOTIFY_ERROR) return end
+	StarCore.SetIdentity(core, d)
 end
 
 handlers.land = function(core, ply, d)
