@@ -76,6 +76,7 @@ end)
 function StarCore.HullDamage(core, amount)
 	if not StarCore.CV.hull:GetBool() or not core.HullMax or amount <= 0 then return end
 	local before = core.Hull
+	core.LastHit = CurTime()   -- (engineers pause after a hit: CrewThink)
 	core.Hull = math.max(core.Hull - amount, 0)
 	core:SetNWInt("starcore_hull", core.Hull)
 	local pct = core.Hull / core.HullMax
@@ -159,19 +160,36 @@ function StarCore.Destroy(core)
 end
 
 hook.Add("EntityTakeDamage", "StarCore.Hull", function(ent, dmg)
+	-- the own ship's shots and blasts (AGP weapons on this ship) never count: AGP blocks them too, but the order of
+	-- damage hooks is not fixed
+	if StarGate and StarGate.OwnShipDamage and StarGate.OwnShipDamage(ent, dmg) then return end
+	-- an unseen helper body inside the ship (SpaceGrid's keel): an area hit already counts on the part round it
+	if ent.StarCoreNoDamage then return end
 	local core = StarCore.PartCore and StarCore.PartCore[ent]
 	if not IsValid(core) then return end
 	local att = dmg:GetAttacker()
 	if IsValid(att) and StarCore.PartCore[att] == core then return end -- own guns / own parts bumping
 	if dmg:IsDamageType(DMG_CRUSH) and dmg:GetDamage() < 50 then return end -- small knocks while flying
-	StarCore.HullDamage(core, dmg:GetDamage())
+	-- Ascension Gates' weapon balance: "Series power" ranks the weapons against ship hulls as in the series, hand weapons
+	-- 5 %; "AGP sandbox" keeps each weapon's own damage (agp_weapon_balance, stargate/server/ship_weapons.lua)
+	local f = StarGate and StarGate.HullFactor and StarGate.HullFactor(dmg) or 1
+	StarCore.HullDamage(core, dmg:GetDamage() * f)
 end)
 
--- engineer on board: slow repair (and the ship can not fly while disabled)
+-- engineers on board: slow repair (and the ship can not fly while disabled). The owner, (it was 1 % a second with
+-- any number of engineers, a full repair in 100 s even in a fight): 0.5 % of the hull a second for each engineer, at
+-- most two working (full from empty in about 3.5 minutes with one, under 2 with two), and none for 5 s after the
+-- last hit. Parts of a point are kept, so small ships (1000 hull = 5 a second) repair evenly.
+local REPAIR_RATE, REPAIR_MAX_ENGINEERS, REPAIR_PAUSE = 0.005, 2, 5   -- (the owner, later the same day: 0.5 % and 5 s)
+StarCore.RepairRate, StarCore.RepairMaxEngineers, StarCore.RepairPause = REPAIR_RATE, REPAIR_MAX_ENGINEERS, REPAIR_PAUSE
 function StarCore.CrewThink(core)
 	if (core.NextCrew or 0) > CurTime() then return end
 	core.NextCrew = CurTime() + 1
-	if core.HullMax and core.Hull < core.HullMax and #StarCore.CrewIn(core, "engineer") > 0 then
-		StarCore.HullRepair(core, math.ceil(core.HullMax * 0.01))
-	end
+	if not core.HullMax or core.Hull >= core.HullMax then core.RepairCarry = 0 return end
+	local n = math.min(#StarCore.CrewIn(core, "engineer"), REPAIR_MAX_ENGINEERS)
+	if n == 0 or CurTime() - (core.LastHit or -math.huge) < REPAIR_PAUSE then return end
+	local amount = core.HullMax * REPAIR_RATE * n + (core.RepairCarry or 0)
+	local whole = math.floor(amount)
+	core.RepairCarry = amount - whole
+	if whole > 0 then StarCore.HullRepair(core, whole) end
 end

@@ -39,9 +39,9 @@ if CLIENT then
 	return
 end
 
--- AGP 2026-11-08: a pasted / loaded core came loose: its PostEntityPaste set the design again, which made new physics
--- (unfrozen, awake) after the duplicator had frozen it. The physics are made new only when the model really changes,
--- and a frozen core stays frozen then
+-- AGP: a pasted / loaded core came loose: its PostEntityPaste set the design again, which made new physics (unfrozen,
+-- awake) after the duplicator had frozen it. The physics are made new only when the model really changes, and a
+-- frozen core stays frozen then
 function ENT:SetupDesign(id)
 	self.Design = StarCore.DesignId(id or self.Design)
 	local model = StarCore.DesignModel(self.Design)
@@ -59,7 +59,7 @@ function ENT:SetupDesign(id)
 	end
 end
 
--- AGP 2026-11-08: the design a model belongs to (the duplicator sets the model before the core spawns)
+-- AGP: the design a model belongs to (the duplicator sets the model before the core spawns)
 local function designOfModel(model)
 	for _, d in ipairs(StarCore.Designs) do if d.model == model then return d.id end end
 end
@@ -94,10 +94,10 @@ function ENT:ChangeDesign(id)
 end
 
 function ENT:Initialize()
-	self:SetupDesign(self.Design or designOfModel(self:GetModel()))   -- AGP 2026-11-08: a pasted core keeps its model
+	self:SetupDesign(self.Design or designOfModel(self:GetModel()))   -- AGP: a pasted core keeps its model
 	self:SetUseType(SIMPLE_USE)
 	self.Settings = table.Copy(StarCore.Defaults)
-	if StarCore.IdentityNew then StarCore.IdentityNew(self) end   -- (2026-11-17: a random name and a hull number)
+	if StarCore.IdentityNew then StarCore.IdentityNew(self) end   -- (a random name and a hull number)
 	self.Marks = self.Marks or {}
 	self.Parts = { self }
 	self.Seats = {}
@@ -109,10 +109,10 @@ function ENT:Initialize()
 	self.Initialized = true
 end
 
--- AGP 2026-11-08: GMod's duplicator (and AdvDupe2) pastes a class that is not Spawnable only for admins, so everyone
--- else got their ship without its core. Spawnable = true above would also put a plain "StarCore" into the spawn menu
--- next to the designs, so the server marks the class spawnable once it is registered (again after a Lua refresh,
--- which registers it anew); the client's spawn menu never sees it. sbox_maxstarcores: PostEntityPaste below.
+-- AGP: GMod's duplicator (and AdvDupe2) pastes a class that is not Spawnable only for admins, so everyone else got
+-- their ship without its core. Spawnable = true above would also put a plain "StarCore" into the spawn menu next to
+-- the designs, so the server marks the class spawnable once it is registered (again after a Lua refresh, which
+-- registers it anew); the client's spawn menu never sees it. sbox_maxstarcores: PostEntityPaste below.
 timer.Simple(0, function()
 	local st = scripted_ents.GetStored("starcore")
 	if st and st.t then st.t.Spawnable = true end
@@ -166,26 +166,28 @@ function ENT:Think()
 end
 
 function ENT:OnRemove()
-	if self.DockedTo and StarCore.Undock then StarCore.Undock(self, true) end   -- (2026-11-17: the lock goes with it)
+	if self.DockedTo and StarCore.Undock then StarCore.Undock(self, true) end   -- (the lock goes with it)
 	StarCore.HelmSetOn(self, false)
+	-- (a held frozen prop stayed unfrozen when the core went - the beam lets it go as when switched off)
+	if self.Tractor and StarCore.TractorSet then StarCore.TractorSet(self, nil) end
 	if StarCore.StopWeapons then StarCore.StopWeapons(self) end
 	if StarCore.CloakSet and self.Cloaked then StarCore.CloakSet(self, false) end
 	timer.Remove("StarCore.SelfDestruct" .. self:EntIndex())
 	StarCore.Unregister(self)
 end
 
--- AGP 2026-11-08: what a core only has while it runs. The duplicator copies the whole entity table into the copy (and
--- merges it into the pasted core), so a pasted ship came with the original's: it hovered / jumped like it, took the
--- original's tool-added parts (ExtraParts) into its own ship, thought itself cloaked, kept the original's enemies,
--- target and part lists, and its Wire outputs still drove what the original was wired to. A copy leaves these out;
--- a pasted core (also from AdvDupe2 or an older dupe that still has them) starts with its own, as a new core does.
+-- AGP: what a core only has while it runs. The duplicator copies the whole entity table into the copy (and merges it
+-- into the pasted core), so a pasted ship came with the original's: it hovered / jumped like it, took the original's
+-- tool-added parts (ExtraParts) into its own ship, thought itself cloaked, kept the original's enemies, target and
+-- part lists, and its Wire outputs still drove what the original was wired to. A copy leaves these out; a pasted
+-- core (also from AdvDupe2 or an older dupe that still has them) starts with its own, as a new core does.
 local RUNTIME = {
 	"Helm", "FTLData", "Autopilot", "AutopilotInputs", "Landing", "FleetLeader", "FleetOffset", "NextFleet",
 	"Hostiles", "Target", "TargetLock", "Contacts", "Viewers", "Engage", "Firing", "Weapons", "NextWeapons", "NextSensor",
 	"Tractor", "Transporter", "NextBeam", "Cloaked", "CloakSaved", "ExtraParts", "Excluded", "PilotSeat", "SeatRoles",
 	"Parts", "PhysParts", "Seats", "Screens", "Shields", "PowerSources", "RDPart", "Gate", "Iris", "SGOutbound", "SGIrisByUs",
 	"Sleeping", "TooBig", "Destroyed", "Mass", "LocalMins", "LocalMaxs", "CombatMarked",
-	"DockedTo", "DockRoot", "DockRel", "OwnParts", "OwnMins", "OwnMaxs",   -- (2026-11-17: docking, sv_dock.lua; a pasted ship is not docked)
+	"DockedTo", "DockRoot", "DockRel", "OwnParts", "OwnMins", "OwnMaxs",   -- (docking, sv_dock.lua; a pasted ship is not docked)
 	"PowerRate", "LastStored", "LastStoredT", "LowPowerWarned", "ShieldWasUp", "ShieldOffByUs", "NextAutoShield",
 	"NextScan", "NextSG", "NextPower", "NextCrew", "NextWireOut", "WireLast", "VoiceLast",
 }
@@ -240,13 +242,13 @@ end
 
 -- dupes: settings, marks and the chosen pilot seat travel with the ship
 function ENT:PreEntityCopy()
-	-- AGP 2026-11-08: wires into the core were lost on dupe / save (no Wire dupe info was written)
+	-- AGP: wires into the core were lost on dupe / save (no Wire dupe info was written)
 	duplicator.ClearEntityModifier(self, "WireDupeInfo")
 	if WireLib and WireLib.BuildDupeInfo then
 		local info = WireLib.BuildDupeInfo(self)
 		if istable(info) and istable(info.Wires) and next(info.Wires) then duplicator.StoreEntityModifier(self, "WireDupeInfo", info) end
 	end
-	-- AGP 2026-11-08: the core's whole modifier anew each time (StoreEntityModifier merges into the old one)
+	-- AGP: the core's whole modifier anew each time (StoreEntityModifier merges into the old one)
 	duplicator.ClearEntityModifier(self, "starcore")
 	local pilot = self.PilotSeat
 	duplicator.StoreEntityModifier(self, "starcore", {
@@ -261,9 +263,9 @@ function ENT:PreEntityCopy()
 			return r
 		end)(),
 		hull = self.Hull,
-		front = self.FrontYaw,   -- (2026-11-14: the front set in the menu, local to the core)
-		-- AGP 2026-11-08: the tool-added parts by index (the paste maps them to its own new parts), and while cloaked how
-		-- the parts really look (a copy taken while cloaked would stay see-through: it is pasted uncloaked)
+		front = self.FrontYaw,   -- (the front set in the menu, local to the core) AGP: the
+		-- tool-added parts by index (the paste maps them to its own new parts), and while cloaked how the parts really
+		-- look (a copy taken while cloaked would stay see-through: it is pasted uncloaked)
 		extra = (function()
 			local x = {}
 			for e in pairs(istable(self.ExtraParts) and self.ExtraParts or {}) do if IsValid(e) then x[#x + 1] = e:EntIndex() end end
@@ -280,9 +282,9 @@ function ENT:PreEntityCopy()
 end
 
 function ENT:PostEntityPaste(ply, ent, created)
-	-- AGP 2026-11-08: a pasted core counts against sbox_maxstarcores like a spawned one (AdvDupe2 has counted it
-	-- already, through PlayerSpawnedSENT); a player over the limit does not keep it. Admins are not held to it here:
-	-- they load game saves (the duplicator too) with any number of ships
+	-- AGP: a pasted core counts against sbox_maxstarcores like a spawned one (AdvDupe2 has counted it already,
+	-- through PlayerSpawnedSENT); a player over the limit does not keep it. Admins are not held to it here: they load
+	-- game saves (the duplicator too) with any number of ships
 	if IsValid(ply) and ply:IsPlayer() and not StarCore.IsCounted(self) then
 		if not ply:IsAdmin() and not ply:CheckLimit("starcores") then
 			SafeRemoveEntityDelayed(self, 0)
@@ -290,9 +292,9 @@ function ENT:PostEntityPaste(ply, ent, created)
 		end
 		StarCore.CountCore(ply, self)
 	end
-	-- AGP 2026-11-08: a new ship: its own running state, its own Wire ports, and the wires into it made again
+	-- AGP: a new ship: its own running state, its own Wire ports, and the wires into it made again
 	freshState(self)
-	if StarCore.IdentityPasted then StarCore.IdentityPasted(self) end   -- (2026-11-17: name kept, a new number if taken)
+	if StarCore.IdentityPasted then StarCore.IdentityPasted(self) end   -- (name kept, a new number if taken)
 	if self.Disabled then self:SetNWBool("starcore_disabled", true) end   -- (the hull damage came along: so does being disabled)
 	ownWirePorts(self, created)
 	local wireInfo = self.EntityMods and self.EntityMods.WireDupeInfo

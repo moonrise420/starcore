@@ -22,8 +22,8 @@ function ENT:SetupDataTables()
 end
 
 if SERVER then
-	-- AGP 2026-11-08: pasteable by everyone (the duplicator pastes a class that is not Spawnable only for admins);
-	-- marked on the server once registered, so the spawn menu keeps its two sizes and gets no plain entry (see starcore.lua)
+	-- AGP: pasteable by everyone (the duplicator pastes a class that is not Spawnable only for admins); marked on
+	-- the server once registered, so the spawn menu keeps its two sizes and gets no plain entry (see starcore.lua)
 	timer.Simple(0, function()
 		local st = scripted_ents.GetStored("starcore_screen")
 		if st and st.t then st.t.Spawnable = true end
@@ -36,14 +36,14 @@ if SERVER then
 		end
 	end
 
-	-- AGP 2026-11-08: one of our two screen models (nil for anything else)
+	-- AGP: one of our two screen models (nil for anything else)
 	local function screenModel(m)
 		for _, s in ipairs(SIZES) do if s.model == m then return m end end
 	end
 
 	function ENT:Initialize()
-		-- AGP 2026-11-08: a pasted / loaded wide screen came back as the small one: the duplicator sets the model before
-		-- the screen spawns, but ScreenModel only after it - the model it already has is kept
+		-- AGP: a pasted / loaded wide screen came back as the small one: the duplicator sets the model before the screen
+		-- spawns, but ScreenModel only after it - the model it already has is kept
 		self:SetModel(self.ScreenModel or screenModel(self:GetModel()) or SIZES[1].model)
 		self:PhysicsInit(SOLID_VPHYSICS)
 		self:SetMoveType(MOVETYPE_VPHYSICS)
@@ -57,7 +57,7 @@ if SERVER then
 	end
 
 	function ENT:PreEntityCopy()
-		-- AGP 2026-11-08: + the core it shows, by index (the paste links the screen to the pasted core, not the original)
+		-- AGP: + the core it shows, by index (the paste links the screen to the pasted core, not the original)
 		duplicator.ClearEntityModifier(self, "starcore_screen")
 		local core = self:GetCore()
 		duplicator.StoreEntityModifier(self, "starcore_screen", { page = self:GetPage(), model = self:GetModel(),
@@ -65,15 +65,15 @@ if SERVER then
 	end
 
 	function ENT:PostEntityPaste(ply, ent, created)
-		-- AGP 2026-11-08: the duplicator restores the screen's Core (a network var) as the ORIGINAL core: a screen on the
-		-- copy that is not welded to it (so the copy's core never claims it) controlled the original ship. Now the core
-		-- of this paste, or none (a ship's core claims its screens again when it scans)
+		-- AGP: the duplicator restores the screen's Core (a network var) as the ORIGINAL core: a screen on the copy that
+		-- is not welded to it (so the copy's core never claims it) controlled the original ship. Now the core of this
+		-- paste, or none (a ship's core claims its screens again when it scans)
 		local d = self.EntityMods and self.EntityMods.starcore_screen
 		local core = istable(d) and d.core and created and (created[d.core] or created[tonumber(d.core) or -1] or created[tostring(d.core)])
 		self:SetCore(IsValid(core) and core:GetClass() == "starcore" and core or NULL)
 		if istable(d) then
 			if isnumber(d.page) then self:SetPage(math.Clamp(math.floor(d.page), 1, self.Pages)) end
-			-- AGP 2026-11-08: the saved size (older dupes / other duplicators that spawned it with the small model)
+			-- AGP: the saved size (older dupes / other duplicators that spawned it with the small model)
 			local m = isstring(d.model) and screenModel(d.model)
 			if m and self:GetModel() ~= m then
 				local p = self:GetPhysicsObject()
@@ -166,7 +166,7 @@ local function drawRadar(core, cx, cy, r, th)
 	surface.DrawCircle(cx, cy, r * 0.5, th.fg.r, th.fg.g, th.fg.b, 60)
 	local data = StarCore.Radar and StarCore.Radar[core]
 	if not data then return end
-	-- AGP 2026-11-08: the ship's radar range (menu setting, capped by the server like the sensors); was a fixed 15000
+	-- AGP: the ship's radar range (menu setting, capped by the server like the sensors); was a fixed 15000
 	local range = math.max(math.min(core:GetNWFloat("starcore_radar_range", 15000), GetConVar("starcore_radar_range"):GetFloat()), 1)
 	local center = core:GetPos()
 	local a = math.rad(-data.yaw)
@@ -190,7 +190,7 @@ local function drawPage(ent, core, w, h, th)
 	draw.RoundedBox(12, 0, 0, w, h, th.bg)
 	draw.RoundedBox(12, 0, 0, w, 46, th.accent)
 	local titles = { "screen_overview", "tab_jump", "tab_radar", "screen_weapons", "tab_gates", "tab_power" }
-	-- 2026-11-17: the ship's name in the title (owner: ship names and classes)
+	-- the ship's name in the title (ship names and classes)
 	local ship = IsValid(core) and StarCore.ShipTitle and StarCore.ShipTitle(core, false) or ""
 	draw.SimpleText((ship ~= "" and ship or "StarCore") .. " · " .. T(titles[page] or "screen_overview"), "StarCoreScreenBig", 14, 6, th.title)
 	if not IsValid(core) then

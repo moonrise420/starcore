@@ -6,7 +6,7 @@ function StarCore.AutopilotSet(core, target, follow)
 		return true
 	end
 	if core.Sleeping or core.TooBig then return false, core.TooBig and "too_big" or "second_core" end
-	if core.DockedTo then return false, "dock_is_docked" end   -- (2026-11-17)
+	if core.DockedTo then return false, "dock_is_docked" end   --
 	if not core.Helm.on then StarCore.HelmSetOn(core, true) end
 	if core.Helm.frozen then StarCore.SetFrozen(core, false) end
 	core.Autopilot = { pos = isvector(target) and target or nil, ent = IsEntity(target) and target or nil, follow = follow }
@@ -24,11 +24,11 @@ local function goal(core)
 	return ap.pos
 end
 
--- 2026-11-17 (owner: outside the spawn city, the gate inside as target, the ship sank forward into the city wall - it
--- went down to the goal's height at once and only looked straight ahead at its own height). Now it looks along the
--- whole way to the goal (up to LOOK units ahead): hull traces straight down at points on that line, as wide as the
--- ship, find the highest thing under it; the ship keeps that height + CLEAR until the stretch is behind it, and only
--- then sinks to the goal. The goal's own spot does not count (landing there is the point).
+-- (outside the spawn city, the gate inside as target, the ship sank forward into the city wall - it went down to the
+-- goal's height at once and only looked straight ahead at its own height). Now it looks along the whole way to the
+-- goal (up to LOOK units ahead): hull traces straight down at points on that line, as wide as the ship, find the
+-- highest thing under it; the ship keeps that height + CLEAR until the stretch is behind it, and only then sinks to
+-- the goal. The goal's own spot does not count (landing there is the point).
 local CLEAR, SCAN_EVERY = 120, 0.2
 local function scanAhead(core, ap, c, g, dist, speed)
 	local mins, maxs = StarCore.ShipBox(core, core:GetAngles())

@@ -5,10 +5,10 @@ local FTL = StarCore.FTL
 local frame, current, state
 local build -- the whole menu (defined at the end)
 
--- AGP 2026-11-08: every command reply rebuilt the whole window: a slider or the colour mixer vanished under the mouse
--- mid-drag and every scroll position jumped back to the top. Now a reply for the open window sets the open controls
--- in place (live below), rebuilds only a tab whose own data changed (never while the mouse button is held or one of
--- its text fields is in use) and a rebuilt tab keeps its scroll position.
+-- AGP: every command reply rebuilt the whole window: a slider or the colour mixer vanished under the mouse mid-drag
+-- and every scroll position jumped back to the top. Now a reply for the open window sets the open controls in place
+-- (live below), rebuilds only a tab whose own data changed (never while the mouse button is held or one of its text
+-- fields is in use) and a rebuilt tab keeps its scroll position.
 local live = {}        -- name -> { pnl = panel, fn = function(state) }: runs on every reply for the open core
 local applying = false -- live setters are running: the controls' change callbacks must not send the value back
 local function onReply(name, pnl, fn) live[name] = { pnl = pnl, fn = fn } end
@@ -200,8 +200,8 @@ STYLE.DListView = function(p)
 end
 
 -- vgui.Create + the theme look
--- 2026-11-18 (owner: button texts cut off, a bigger window did not help): a button given a width is never narrower than
--- its text (in every language), also when its text changes later
+-- (button texts cut off, a bigger window did not help): a button given a width is never narrower than its text (in
+-- every language), also when its text changes later
 local function fitButton(b)
 	local setW, setT = b.SetWide, b.SetText
 	local function fit(self)
@@ -221,8 +221,8 @@ local function create(class, parent)
 	if class == "DButton" then fitButton(p) end
 	return p
 end
--- 2026-11-17 (owner: the core design list of the StarCore tool showed white text on a white field - the menu skin of the
--- player decides the tool page's colours): the list paints itself in StarCore's colours, field and drop-down
+-- (the core design list of the StarCore tool showed white text on a white field - the menu skin of the player decides
+-- the tool page's colours): the list paints itself in StarCore's colours, field and drop-down
 function StarCore.StyleCombo(p)
 	if not IsValid(p) or p.StarCoreStyled then return end
 	p.StarCoreStyled = true
@@ -262,8 +262,8 @@ local function label(parent, text, font)
 	l:DockMargin(4, 4, 4, 0)
 	l:SetFont(font or "DermaDefault")
 	l:SetText(text)
-	-- 2026-11-18 (owner: texts cut off): a text longer than the window is wide goes onto the next line; the labels that
-	-- change their text (their own Think) keep their height right through SizeToContents
+	-- (texts cut off): a text longer than the window is wide goes onto the next line; the labels that change their text
+	-- (their own Think) keep their height right through SizeToContents
 	l:SetWrap(true)
 	l:SetAutoStretchVertical(true)
 	l.SizeToContents = function(self) self:SizeToContentsY() end
@@ -283,7 +283,7 @@ local function slider(parent, key, min, max, dec, unit)
 	elseif unit == "accel" then text = text .. " (" .. U.Name() .. "/s²)" end
 	s:SetText(text)
 	s:SetTooltip(text)
-	-- 2026-11-18 (owner: texts cut off): the text gets up to 62 % of the row, and a longer one goes onto two lines
+	-- (texts cut off): the text gets up to 62 % of the row, and a longer one goes onto two lines
 	local layout = s.PerformLayout
 	s.PerformLayout = function(self, w, h)
 		if layout then layout(self, w, h) end
@@ -299,10 +299,10 @@ local function slider(parent, key, min, max, dec, unit)
 	s:SetDecimals(dec or ((max - min) / per < 60 and 1 or 0))
 	s:SetValue((state.settings[key] or StarCore.Defaults[key]) / per)
 	s.OnValueChanged = function(_, v)
-		if applying then return end -- AGP 2026-11-08: set from a reply, not by the player
+		if applying then return end -- AGP: set from a reply, not by the player
 		timer.Create("StarCore.Slider." .. key, 0.4, 1, function() send("settings", { values = { [key] = v * per } }) end)
 	end
-	-- AGP 2026-11-08: follow the server's value (clamped, changed by others), not while dragged or still to be sent
+	-- AGP: follow the server's value (clamped, changed by others), not while dragged or still to be sent
 	onReply("set." .. key, s, function(st)
 		local v = st.settings and st.settings[key]
 		if not isnumber(v) or s:IsEditing() or timer.Exists("StarCore.Slider." .. key) then return end
@@ -311,10 +311,14 @@ local function slider(parent, key, min, max, dec, unit)
 	return s
 end
 
--- AGP 2026-11-08: a label whose text follows the ship (the window is no longer rebuilt on every reply)
+-- AGP: a label whose text follows the ship (the window is no longer rebuilt on every reply)
 local function liveLabel(parent, fn)
 	local l = label(parent, fn())
+	-- (Parts, Seats, Size: this Think replaced the label's own, which fits its height to the text once the window is
+	-- wide - the height from the first, narrow measure stayed)
+	local own = l.Think
 	l.Think = function(self)
+		if own then own(self) end
 		local t = IsValid(current) and fn()
 		if t and t ~= self:GetText() then
 			self:SetText(t)
@@ -349,7 +353,7 @@ local function buildHelm(sheet)
 		self:SizeToContents()
 	end
 	button(p, T("btn_hover"), function() send("hover", { on = not current:GetNWBool("starcore_hover") }) end)
-	-- 2026-11-17 (owner: carriers): dock into the bigger ship this one sits in / let go; a carrier lets all go
+	-- (carriers): dock into the bigger ship this one sits in / let go; a carrier lets all go
 	local dk = button(p, T("btn_dock"), function() send("dock", {}) end)
 	local carried = liveLabel(p, function() return T("dock_carrying", current:GetNWInt("starcore_docked_ships")) end)
 	local rel = button(p, T("btn_undock_all"), function() send("undock_all", {}) end)
@@ -364,7 +368,7 @@ local function buildHelm(sheet)
 		if rel:IsVisible() ~= show then rel:SetVisible(show); carried:SetVisible(show); rel:GetParent():InvalidateLayout() end
 	end
 	button(p, T("btn_freeze"), function() send("freeze", { on = not current:GetNWBool("starcore_frozen") }) end)
-	-- 2026-11-14 (owner: "how can the player set for the starcore were oriantation forward is"): stand facing the ship's nose
+	-- stand facing the ship's nose
 	button(p, T("btn_front"), function() send("front", {}) end)
 	button(p, T("btn_front_clear"), function() send("front", { clear = true }) end)
 	-- first / third person in this seat (in the pilot seat Ctrl flies down and no longer switches the view)
@@ -382,7 +386,7 @@ local function buildHelm(sheet)
 	pub:SetText(T("set_public"))
 	pub:SetValue(state.settings.public and 1 or 0)
 	pub.OnChange = function(_, v) send("settings", { values = { public = v } }) end
-	liveCheck(pub, "set.public", function(st) return st.settings and st.settings.public == true end) -- AGP 2026-11-08
+	liveCheck(pub, "set.public", function(st) return st.settings and st.settings.public == true end) -- AGP
 	return p
 end
 
@@ -416,7 +420,7 @@ local function buildJump(sheet)
 		if d then line:SetSortValue(3, d) end
 		line.index = i
 	end
-	-- AGP 2026-11-08: distances follow the ship on every reply (the list itself is rebuilt only when the marks change)
+	-- AGP: distances follow the ship on every reply (the list itself is rebuilt only when the marks change)
 	onReply("jump.dist", list, function(st)
 		if not IsValid(current) then return end
 		for _, line in pairs(list:GetLines()) do
@@ -552,7 +556,7 @@ local function buildGates(sheet)
 		line.gate = g
 		lines[g.id] = line
 	end
-	-- AGP 2026-11-08: distances follow the ship on every reply; the list is rebuilt only when the gates change
+	-- AGP: distances follow the ship on every reply; the list is rebuilt only when the gates change
 	onReply("gates.dist", list, function(st)
 		for _, g in ipairs(st.sg and st.sg.list or {}) do
 			local line = lines[g.id]
@@ -605,7 +609,7 @@ local function buildGates(sheet)
 	auto:SetText(T("set_iris_auto"))
 	auto:SetValue(sg.irisAuto and 1 or 0)
 	auto.OnChange = function(_, v) send("sg_irisauto", { on = v }) end
-	liveCheck(auto, "sg.irisAuto", function(st) return st.sg and st.sg.irisAuto end) -- AGP 2026-11-08
+	liveCheck(auto, "sg.irisAuto", function(st) return st.sg and st.sg.irisAuto end) -- AGP
 
 	button(p, T("btn_jump_gate"), function()
 		local g = sel()
@@ -636,7 +640,7 @@ net.Receive("starcore_contacts", function()
 	hook.Run("StarCore.ContactsUpdated", core)
 end)
 
--- 2026-11-17 (owner: ship names and classes): "Kestrel SC-1042 · Fighter" (empty when the ship has neither name nor number);
+-- (ship names and classes): "Kestrel SC-1042 · Fighter" (empty when the ship has neither name nor number);
 -- withClass = false leaves the class out
 function StarCore.ShipTitle(core, withClass)
 	if not IsValid(core) then return "" end
@@ -699,7 +703,7 @@ local function buildRadar(sheet)
 		surface.DrawLine(cx, cy - 6, cx + 4, cy + 4)
 		local data = IsValid(current) and StarCore.Radar[current]
 		if not data then return end
-		-- AGP 2026-11-08: capped by the server limit like the sensors themselves (sv_combat SensorScan)
+		-- AGP: capped by the server limit like the sensors themselves (sv_combat SensorScan)
 		local range = math.max(math.min(state.settings.radarRange or 15000, GetConVar("starcore_radar_range"):GetFloat()), 1)
 		local center = current:GetPos()
 		local target = current:GetNWEntity("starcore_target")
@@ -723,7 +727,7 @@ local function buildRadar(sheet)
 	list:DockMargin(6, 0, 0, 0)
 	list:SetMultiSelect(false)
 	list:AddColumn(T("col_contact"))
-	-- 2026-11-18: each column at least as wide as its longest word in the player's language
+	-- each column at least as wide as its longest word in the player's language
 	local function colWide(min, ...)
 		surface.SetFont("DermaDefault")
 		local w = min
@@ -787,7 +791,7 @@ local function buildRadar(sheet)
 	lock:SetText(T("set_lock"))
 	lock:SetValue(IsValid(current) and current:GetNWBool("starcore_lock") and 1 or 0)
 	lock.OnChange = function(_, v) send("lock", { on = v }) end
-	liveCheck(lock, "lock", function() return IsValid(current) and current:GetNWBool("starcore_lock") end) -- AGP 2026-11-08
+	liveCheck(lock, "lock", function() return IsValid(current) and current:GetNWBool("starcore_lock") end) -- AGP
 	local function beamButton(text, cmd)
 		local b = create("DButton", row2)
 		b:Dock(RIGHT)
@@ -796,7 +800,7 @@ local function buildRadar(sheet)
 		b:SetText(text)
 		b.DoClick = function() send(cmd, { id = selId() or 0 }) end
 		b:SetEnabled(IsValid(current) and IsValid(current:GetNWEntity("starcore_transporter")))
-		-- AGP 2026-11-08: follows a transporter added or removed while the window is open (no rebuild any more)
+		-- AGP: follows a transporter added or removed while the window is open (no rebuild any more)
 		b.Think = function(self) self:SetEnabled(IsValid(current) and IsValid(current:GetNWEntity("starcore_transporter"))) end
 	end
 	beamButton(T("btn_beam_down"), "beam_down")
@@ -810,9 +814,9 @@ local function buildRadar(sheet)
 	auto:SetText(T("set_autoDefence"))
 	auto:SetValue(state.settings.autoDefence and 1 or 0)
 	auto.OnChange = function(_, v) send("settings", { values = { autoDefence = v } }) end
-	liveCheck(auto, "set.autoDefence", function(st) return st.settings and st.settings.autoDefence == true end) -- AGP 2026-11-08
+	liveCheck(auto, "set.autoDefence", function(st) return st.settings and st.settings.autoDefence == true end) -- AGP
 	slider(p, "radarRange", 1000, GetConVar("starcore_radar_range"):GetFloat(), nil, "dist")
-	liveLabel(p, function() return T("weapons_info", IsValid(current) and current:GetNWInt("starcore_weapons") or 0) end) -- AGP 2026-11-08
+	liveLabel(p, function() return T("weapons_info", IsValid(current) and current:GetNWInt("starcore_weapons") or 0) end) -- AGP
 	return p
 end
 
@@ -853,7 +857,7 @@ local function buildPower(sheet)
 		srcLabels[i] = label(p, "  • " .. language.GetPhrase(src.class) .. ": " .. src.pct .. " %")
 	end
 	if (pw.netCap or 0) > 0 then netLabel = label(p, T("power_network", fmtNum(pw.net), fmtNum(pw.netCap))) end
-	-- AGP 2026-11-08: the numbers follow every reply; the tab is rebuilt only when the sources or shields change
+	-- AGP: the numbers follow every reply; the tab is rebuilt only when the sources or shields change
 	onReply("power.nums", p, function(st)
 		local np = st.power or {}
 		for i, src in ipairs(np.sources or {}) do
@@ -892,7 +896,7 @@ local function buildPower(sheet)
 	auto:SetText(T("set_shieldAuto"))
 	auto:SetValue(state.settings.shieldAuto and 1 or 0)
 	auto.OnChange = function(_, v) send("settings", { values = { shieldAuto = v } }) end
-	liveCheck(auto, "set.shieldAuto", function(rs) return rs.settings and rs.settings.shieldAuto == true end) -- AGP 2026-11-08
+	liveCheck(auto, "set.shieldAuto", function(rs) return rs.settings and rs.settings.shieldAuto == true end) -- AGP
 	slider(p, "shieldSize", 0, pw.shieldMax or 2048, nil, "dist")
 	slider(p, "shieldStrength", -5, 5)
 	slider(p, "shieldFreq", -1, 1500)
@@ -907,10 +911,10 @@ local function buildPower(sheet)
 	local c = state.settings.shieldColor
 	if istable(c) then mixer:SetColor(Color((c[1] or 1) * 255, (c[2] or 1) * 255, (c[3] or 1) * 255)) end
 	mixer.ValueChanged = function(_, col)
-		if applying then return end -- AGP 2026-11-08: set from a reply, not by the player
+		if applying then return end -- AGP: set from a reply, not by the player
 		timer.Create("StarCore.ShieldColor", 0.5, 1, function() send("settings", { values = { shieldColor = { col.r / 255, col.g / 255, col.b / 255 } } }) end)
 	end
-	-- AGP 2026-11-08: follow the server's colour, never while the player drags it or a change is still to be sent
+	-- AGP: follow the server's colour, never while the player drags it or a change is still to be sent
 	onReply("set.shieldColor", mixer, function(rs)
 		local sc = rs.settings and rs.settings.shieldColor
 		if not istable(sc) or input.IsMouseDown(MOUSE_LEFT) or timer.Exists("StarCore.ShieldColor") then return end
@@ -922,7 +926,7 @@ end
 
 local function buildShip(sheet)
 	local p = create("DScrollPanel", sheet)
-	-- 2026-11-17 (owner: "the name field should be free writable"): name (with a dice for a random one), hull number, class
+	-- name (with a dice for a random one), hull number, class
 	label(p, T("identity_title"), "DermaDefaultBold")
 	local function textField(key, max, labelKey, extra)
 		label(p, T(labelKey))
@@ -988,7 +992,7 @@ local function buildShip(sheet)
 	local curDesign = StarCore.DesignId(state.design or (IsValid(current) and current:GetNWString("starcore_design")) or "")
 	for _, d in ipairs(StarCore.Designs) do design:AddChoice(T("design." .. d.id), d.id, d.id == curDesign) end
 	design.OnSelect = function(_, _, _, v) if not applying and v ~= curDesign then send("design", { id = v }) end end
-	-- AGP 2026-11-08: a refused change (ship not landed, no permission) goes back to the real design (no rebuild now)
+	-- AGP: a refused change (ship not landed, no permission) goes back to the real design (no rebuild now)
 	onReply("design", design, function(st)
 		local want = StarCore.DesignId(st.design or (IsValid(current) and current:GetNWString("starcore_design")) or "")
 		local _, have = design:GetSelected()
@@ -1020,11 +1024,11 @@ local function buildShip(sheet)
 	label(p, T("systems_title"), "DermaDefaultBold")
 	local cl = button(p, T("btn_cloak"), function() send("cloak", { on = not current:GetNWBool("starcore_cloaked") }) end)
 	cl.Think = function(self) self:SetText(IsValid(current) and current:GetNWBool("starcore_cloaked") and T("btn_decloak") or T("btn_cloak")) end
-	-- 2026-11-17: aimed with the camera the player sees (the middle of the screen), cl_hud.lua StarCore.ViewNow
+	-- aimed with the camera the player sees (the middle of the screen), cl_hud.lua StarCore.ViewNow
 	local function view(t) local o, d = StarCore.ViewNow() t.vo, t.vd = o, d return t end
 	button(p, T("btn_tractor_hold"), function() send("tractor", view({ mode = "hold" })) end)
 	button(p, T("btn_tractor_pull"), function() send("tractor", view({ mode = "pull" })) end)
-	button(p, T("btn_tractor_push"), function() send("tractor", view({ mode = "push" })) end)   -- (owner 2026-11-17)
+	button(p, T("btn_tractor_push"), function() send("tractor", view({ mode = "push" })) end)   --
 	button(p, T("btn_tractor_target"), function() send("tractor", { mode = "hold", target = true }) end)
 	button(p, T("btn_tractor_off"), function() send("tractor", { off = true }) end)
 	label(p, T("tractor_hint"))
@@ -1048,7 +1052,7 @@ local function buildShip(sheet)
 	size:DockMargin(4, 2, 4, 0)
 	local cur = state.settings.destructSize or StarCore.Defaults.destructSize
 	for i, d in ipairs(StarCore.DestructSizes) do size:AddChoice(T("destruct_" .. d.id), i, cur == i) end
-	-- AGP 2026-11-08: the blast line follows the choice at once, and the server's value on every reply
+	-- AGP: the blast line follows the choice at once, and the server's value on every reply
 	size.OnSelect = function(_, _, _, v)
 		cur = v
 		if not applying then send("settings", { values = { destructSize = v } }) end
@@ -1095,7 +1099,7 @@ local function buildSettings(sheet)
 	hud:DockMargin(4, 8, 4, 0)
 	hud:SetText(T("show_hud"))
 	hud:SetConVar("starcore_hud")
-	-- 2026-11-17 (owner: "style 2&3 should be choosable if the player wants them"): the HUD's look, each player's own
+	-- the HUD's look, each player's own
 	label(p, T("hud_style"))
 	local hs = create("DComboBox", p)
 	hs:Dock(TOP)
@@ -1140,8 +1144,17 @@ local function buildSettings(sheet)
 	local mh = label(p, T("mouse_help"))
 	mh:SetWrap(true)
 	mh:SetAutoStretchVertical(true)
+	-- free flight: loops and rolls, nothing levels the ship
+	local ff = create("DCheckBoxLabel", p)
+	ff:Dock(TOP)
+	ff:DockMargin(4, 6, 4, 0)
+	ff:SetText(T("set_free_flight"))
+	ff:SetConVar("starcore_free_flight")
+	local fh = label(p, T("free_flight_help"))
+	fh:SetWrap(true)
+	fh:SetAutoStretchVertical(true)
 
-	-- keys of the pilot seat (per player, 2026-11-16, cl_hud.lua): click a button, press a key; right-click = no key
+	-- keys of the pilot seat (per player, cl_hud.lua): click a button, press a key; right-click = no key
 	label(p, " ")
 	label(p, T("keys_title"), "DermaDefaultBold")
 	local function binder(textKey, cvName)
@@ -1167,18 +1180,19 @@ local function buildSettings(sheet)
 	binder("key_mouse", "starcore_key_mouse")
 	binder("key_hover", "starcore_key_hover")
 	binder("key_freeze", "starcore_key_freeze")
-	binder("key_tractor", "starcore_key_tractor")   -- 2026-11-17 (owner)
-	binder("key_tractor_pull", "starcore_key_tractor_pull")   -- 2026-11-18 (owner)
+	binder("key_tractor", "starcore_key_tractor")   --
+	binder("key_tractor_pull", "starcore_key_tractor_pull")   --
 	binder("key_tractor_push", "starcore_key_tractor_push")
 	binder("key_cloak", "starcore_key_cloak")
-	binder("key_dock", "starcore_key_dock")   -- 2026-11-17 (owner: carriers)
+	binder("key_dock", "starcore_key_dock")   -- (carriers)
+	binder("key_aim", "starcore_key_aim")   -- (gunners aim with the crosshair)
 	local kh = label(p, T("seatkeys_help"))
 	kh:SetWrap(true)
 	kh:SetAutoStretchVertical(true)
 	label(p, " ")
 	label(p, T("ship_info"), "DermaDefaultBold")
 	if IsValid(current) then
-		-- AGP 2026-11-08: follow the ship (the window is no longer rebuilt on every reply)
+		-- AGP: follow the ship (the window is no longer rebuilt on every reply)
 		liveLabel(p, function() return T("info_parts", current:GetNWInt("starcore_parts")) end)
 		liveLabel(p, function() return T("info_seats", current:GetNWInt("starcore_seats")) end)
 		liveLabel(p, function()
@@ -1210,8 +1224,8 @@ local function buildSettings(sheet)
 	return p
 end
 
--- AGP 2026-11-08: what each tab shows that only a rebuild of the tab can change (numbers and settings follow the
--- reply in place, see live at the top). A tab is rebuilt when its signature differs from the last reply.
+-- AGP: what each tab shows that only a rebuild of the tab can change (numbers and settings follow the reply in
+-- place, see live at the top). A tab is rebuilt when its signature differs from the last reply.
 local function marksSig(marks)
 	local out = {}
 	for i, m in ipairs(marks or {}) do out[i] = tostring(m.name) .. "@" .. tostring(m.pos) end
@@ -1310,8 +1324,8 @@ local function refreshTabs()
 end
 
 function build()
-	-- 2026-11-17 (owner: "it should remember what last tab was open" - after leaving the seat or closing the window):
-	-- a new window opens on the tab the player had open last (cookie, per player)
+	-- (after leaving the seat or closing the window): a new window opens on the tab the player had open last (cookie,
+	-- per player)
 	local tabId, scroll = cookie.GetString("starcore_menu_tab", "helm"), {}
 	if IsValid(frame) then
 		local active = frame.sheet:GetActiveTab()
@@ -1326,8 +1340,8 @@ function build()
 	end
 	live = {}
 	setTheme(themeOf(state))
-	-- 2026-11-15 (owner: the menu should stay open while he flies, be dragged around and resized at its edges like a window,
-	-- and he keeps flying and using keys meanwhile): the keyboard stays with the game (except while typing in a text box,
+	-- (the menu should stay open while he flies, be dragged around and resized at its edges like a window, and he keeps
+	-- flying and using keys meanwhile): the keyboard stays with the game (except while typing in a text box,
 	-- OnTextEntryGetFocus below); R swaps the mouse between the window and steering (PlayerBindPress below); the window
 	-- keeps its place and size (cookies) and closes only with its X (or when the ship is gone).
 	frame = create("DFrame")
@@ -1372,9 +1386,9 @@ function build()
 			if item.Tab == new then cookie.Set("starcore_menu_tab", id) end
 		end
 	end
-	-- 2026-11-17 (owner: "i cant move or resize it"): this Think replaced DFrame's own, which does the dragging - so the
-	-- window never moved. Now it calls DFrame's first (title bar drag, bottom-right corner) and adds the edges: the
-	-- left, right and bottom border resize the window (the tabs cover the rest, the border gets the clicks).
+	-- this Think replaced DFrame's own, which does the dragging - so the window never moved. Now it calls DFrame's first
+	-- (title bar drag, bottom-right corner) and adds the edges: the left, right and bottom border resize the window
+	-- (the tabs cover the rest, the border gets the clicks).
 	local EDGE = 7
 	frame:DockPadding(EDGE, 24 + 4, EDGE, EDGE)
 	local base = vgui.GetControlTable("DFrame")
@@ -1419,7 +1433,7 @@ function build()
 		if not IsValid(current) then self:Close() return end
 		-- keep the radar data coming while the menu is open
 		if (self.nextWatch or 0) < CurTime() then self.nextWatch = CurTime() + 2; send("watch") end
-		if next(self.dirty) then refreshTabs() end -- AGP 2026-11-08: a change that came while the player was busy
+		if next(self.dirty) then refreshTabs() end -- AGP: a change that came while the player was busy
 	end
 end
 
@@ -1430,8 +1444,8 @@ net.Receive("starcore_menu", function()
 	local old = state
 	local same = IsValid(frame) and current == core and old ~= nil
 	current, state = core, data
-	-- AGP 2026-11-08: a new window, another core, another theme or the Gates tab coming or going builds the whole
-	-- window; any other reply updates the open one in place (see live at the top)
+	-- AGP: a new window, another core, another theme or the Gates tab coming or going builds the whole window;
+	-- any other reply updates the open one in place (see live at the top)
 	if not same or themeOf(old) ~= themeOf(state) or (old.sg == nil) ~= (state.sg == nil) then build() return end
 	for _, t in ipairs(TABS) do
 		if t.sig and t.sig(old) ~= t.sig(state) then frame.dirty[t.id] = true end

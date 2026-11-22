@@ -98,7 +98,7 @@ function StarCore.RequestJump(core, ply, target)
 	local d = core.FTLData
 	if not StarCore.CV.allowJump:GetBool() then return false, "disabled_by_server" end   -- (server setting, every way to jump comes here)
 	if core.Sleeping or core.TooBig then return false, core.TooBig and "too_big" or "second_core" end
-	if core.DockedTo then return false, "dock_is_docked" end   -- (2026-11-17: it jumps with the big ship)
+	if core.DockedTo then return false, "dock_is_docked" end   -- (it jumps with the big ship)
 	if core.Disabled then return false, "ship_disabled" end
 	if d.state == FTL.COOLDOWN then return false, "cooling_down" end
 	if d.state == FTL.JUMPING then return false, "busy" end
@@ -109,7 +109,7 @@ function StarCore.RequestJump(core, ply, target)
 	if range > 0 and pos:Distance(core:GetPos()) > range then return false, "too_far" end
 	if pos:Distance(core:GetPos()) < 50 then return false, "already_there" end
 	local cost = StarCore.JumpCost and StarCore.JumpCost(core, pos:Distance(core:GetPos())) or 0
-	if cost > 0 and StarCore.JumpEnergy and StarCore.JumpEnergy(core) < cost then return false, "no_energy" end   -- AGP 2026-11-08: the ship's networks (sv_power.lua)
+	if cost > 0 and StarCore.JumpEnergy and StarCore.JumpEnergy(core) < cost then return false, "no_energy" end   -- AGP: the ship's networks (sv_power.lua)
 	d.cost = cost
 	local charge = math.max(core.Settings.charge, StarCore.CV.chargeMin:GetFloat())
 	d.target = pos
@@ -162,7 +162,7 @@ function StarCore.FTLThink(core)
 		end
 		d.lastSafe = core:GetPos()
 		local fromCenter = shipCenter(core)
-		d.movedParts, d.movedPeople = StarCore.MoveShip(core, spot, core:GetAngles())
+		d.movedParts, d.movedPeople, d.movedCargo = StarCore.MoveShip(core, spot, core:GetAngles())
 		sound.Play("ambient/machines/teleport4.wav", shipCenter(core), 100, 100)
 		hook.Run("StarCore.Event", core, "arrived")
 		effect(core, 3, shipCenter(core), fromCenter)

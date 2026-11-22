@@ -134,6 +134,6 @@ function TOOL.BuildCPanel(panel)
 	panel:Help("#tool.starcore.help")
 	local box = panel:ComboBox("#tool.starcore.design", "starcore_design")
 	for _, d in ipairs(StarCore.Designs) do box:AddChoice("#starcore.design." .. d.id, d.id) end
-	if StarCore.StyleCombo then StarCore.StyleCombo(box) end   -- (2026-11-17: readable with every menu skin)
+	if StarCore.StyleCombo then StarCore.StyleCombo(box) end   -- (readable with every menu skin)
 	panel:Help("#tool.starcore.help2")
 end

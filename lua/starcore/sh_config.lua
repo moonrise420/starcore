@@ -31,42 +31,52 @@ StarCore.CV = {
 	allowFleet   = CreateConVar("starcore_allow_fleet", "1", FLAGS, "Ships may fly in fleets", 0, 1),
 	allowSelfDestruct = CreateConVar("starcore_allow_selfdestruct", "1", FLAGS, "Owners may self-destruct their ships", 0, 1),
 	selfDestructDamage = CreateConVar("starcore_selfdestruct_damage", "1000", FLAGS, "Highest blast damage of a self-destruct: cap for the size the owner picks (0 = no damage)", 0, 10000),
+	-- (the author's play test) "The ship is under attack" at most once in this many seconds per ship (0 = never)
+	attackNotice = CreateConVar("starcore_attack_notice", "120", FLAGS, "Seconds between two 'ship under attack' messages of one ship (0 = none)", 0, 1800),
+	-- (alone he could not fight his own second ship) own ships count as other ships for weapons
+	shootOwnShips = CreateConVar("starcore_shoot_own_ships", "1", FLAGS, "Ships may target and shoot back at other ships of the same owner", 0, 1),
 	carryPlayers = CreateConVar("starcore_jump_carry_players", "1", FLAGS, "Players standing inside a ship jump with it", 0, 1),
 }
 if SERVER then
 	CreateConVar("sbox_maxstarcores", "2", { FCVAR_ARCHIVE, FCVAR_NOTIFY }, "Most StarCores per player")
 end
--- AGP 2026-11-08: the cleanup type on both sides (was server only: no "StarCores" line in the client's Cleanup menu);
--- its names Cleanup_starcores / Cleaned_starcores / SBoxLimit_starcores are in resource/localization/*/starcore.properties
+-- AGP: the cleanup type on both sides (was server only: no "StarCores" line in the client's Cleanup menu); its names
+-- Cleanup_starcores / Cleaned_starcores / SBoxLimit_starcores are in resource/localization/*/starcore.properties
 cleanup.Register("starcores")
 if CLIENT then
 	-- every player picks how jumps look for them: 1 = light streak (default), 2 = instant flash, 3 = portal window
 	CreateClientConVar("starcore_jump_style", "1", true, false, "StarCore jump look: 1 light streak, 2 flash, 3 portal", 1, 3)
 	CreateClientConVar("starcore_hud", "1", true, false, "Show the StarCore pilot HUD", 0, 1)
-	-- 2026-11-17 (owner: the HUD next to the health box, two rows, "4 different variations"; then "i want style 4 as
-	-- default"), drawn in cl_hud.lua
+	-- (the HUD next to the health box, two rows, "4 different variations"; then "i want style 4 as default"), drawn
+	-- in cl_hud.lua
 	CreateClientConVar("starcore_hud_look", "1", true, false, "StarCore pilot HUD look: 1 slim (default), 2 ship theme, 3 panels with bars", 1, 3)
 	CreateClientConVar("starcore_unit_distance", "0", true, false, "StarCore distance/speed unit: 0 auto, 1 metres, 2 feet, 3 game units", 0, 3)
 	-- sent to the server (userinfo): the helm reads them for the pilot
 	CreateClientConVar("starcore_mouse_steer", "0", true, true, "StarCore: steer the ship with the mouse in the pilot seat (X turns, Y pitches)", 0, 1)
 	CreateClientConVar("starcore_mouse_sens", "1", true, true, "StarCore: mouse steering sensitivity", 0.2, 3)
-	-- keys of the pilot seat (2026-11-16, a Workshop player: look around as a switch, keys for mouse steering and hover),
-	-- picked in the menu's Settings tab (cl_hud.lua). 0 = no key. Look around: Alt by default, held or tapped on/off.
-	-- Defaults M / H / J (2026-11-17, owner): free in Garry's Mod's default keys and in none of our addons.
+	-- free flight: the mouse turns the nose any way (loops), A/D roll, nothing levels the ship; off = the helm as
+	-- always (level, the nose at most 30 degrees up or down)
+	--
+	CreateClientConVar("starcore_free_flight", "0", true, true, "StarCore: free flight - the mouse turns the ship any way, A/D roll, no levelling", 0, 1)
+	-- keys of the pilot seat (a Workshop player: look around as a switch, keys for mouse steering and hover), picked in
+	-- the menu's Settings tab (cl_hud.lua). 0 = no key. Look around: Alt by default, held or tapped on/off. Defaults M
+	-- / H / J: free in Garry's Mod's default keys and in none of our addons.
 	CreateClientConVar("starcore_key_look", tostring(KEY_LALT), true, false, "StarCore: key to look around in the pilot seat (0 = none)")
 	CreateClientConVar("starcore_look_toggle", "0", true, false, "StarCore: 0 = hold the look-around key, 1 = tap it on/off", 0, 1)
 	CreateClientConVar("starcore_key_mouse", tostring(KEY_M), true, false, "StarCore: key to switch mouse steering on/off (0 = none)")
 	CreateClientConVar("starcore_key_hover", tostring(KEY_H), true, false, "StarCore: key to switch hover on/off (0 = none)")
 	CreateClientConVar("starcore_key_freeze", tostring(KEY_J), true, false, "StarCore: key to freeze / unfreeze the ship (0 = none)")
-	-- 2026-11-17 (owner: "also for traktorstrahl some keybind ... also for cloak"): H J K L in one row
+	-- H J K L in one row
 	CreateClientConVar("starcore_key_tractor", tostring(KEY_K), true, false, "StarCore: key for the tractor beam: grab what you look at / let go (0 = none)")
 	CreateClientConVar("starcore_key_cloak", tostring(KEY_L), true, false, "StarCore: key to cloak / decloak the ship (0 = none)")
-	-- 2026-11-18 (owner: "that key thing for push and pull the traktorstrahl"): I = pull in, O = push out (free in
-	-- Garry's Mod's default keys and in none of our addons)
+	-- I = pull in, O = push out (free in Garry's Mod's default keys and in none of our addons)
+	--
 	CreateClientConVar("starcore_key_tractor_pull", tostring(KEY_I), true, false, "StarCore: key for the tractor beam: pull in (again = just hold) (0 = none)")
 	CreateClientConVar("starcore_key_tractor_push", tostring(KEY_O), true, false, "StarCore: key for the tractor beam: push away (again = just hold) (0 = none)")
-	-- 2026-11-17 (owner: carriers - "do 1 it sounds great"): dock into the bigger ship you are in / undock
+	-- (carriers - "do 1 it sounds great"): dock into the bigger ship you are in / undock
 	CreateClientConVar("starcore_key_dock", tostring(KEY_N), true, false, "StarCore: key to dock into a bigger ship / undock (0 = none)")
+	-- the pilot's and gunners' aim: auto (the radar target) or the own crosshair
+	CreateClientConVar("starcore_key_aim", tostring(MOUSE_MIDDLE), true, false, "StarCore: key to switch the weapons between auto aim and your crosshair (0 = none)")
 	CreateClientConVar("starcore_looking", "0", false, true, "StarCore: set by the look-around key (the helm then ignores the mouse)", 0, 1)
 end
 
@@ -101,13 +111,13 @@ StarCore.Defaults = {
 	class = "auto",     -- "auto" (from length and weapons) or one of StarCore.ShipClasses
 }
 
--- ship names and classes (2026-11-17, owner: "Ship names and classes ... the name field should be free writable").
--- The class comes from the ship's length and whether it has weapons, unless the owner picks one: a big ship without
--- weapons is a freighter, with weapons a cruiser or capital ship. Carrier and station only when picked by hand.
+-- ship names and classes. The class comes from the ship's length and whether it has weapons, unless a player picks
+-- one: a big ship without weapons is a freighter, with weapons a cruiser or capital ship. Carrier and station only
+-- when picked by hand.
 StarCore.ShipClasses = { "shuttle", "transport", "freighter", "fighter", "frigate", "cruiser", "capital", "carrier", "station" }
--- (owner 2026-11-17: "should we do a max name length? so the hud never escalates to big?": 24 letters, and the HUD,
--- screens and radar show at most StarCore.NameShow of them)
-StarCore.NameMax, StarCore.RegNoMax, StarCore.NameShow = 20, 12, 20   -- (owner: "max ship name is 20 caracters and not more")
+-- (24 letters, and the HUD, screens and radar show at most StarCore.NameShow of them)
+--
+StarCore.NameMax, StarCore.RegNoMax, StarCore.NameShow = 20, 12, 20   --
 function StarCore.AutoClass(length, armed)
 	if armed then
 		if length < 500 then return "fighter" elseif length < 1200 then return "frigate" elseif length < 3000 then return "cruiser" end
@@ -149,8 +159,8 @@ end
 StarCore.MaxMarks = 8
 
 -- core designs: our own core models (Sketchfab, CC BY 4.0 - authors in CREDITS.md and lua/starcore/sh_license.lua),
--- converted by notes/models/starcore_cores.py. One spawn menu entry per design; the Ship tab changes a placed core live.
--- This is the only place that maps a design to its model: the entity, spawn menu, tool and menu all read it from here.
+-- converted by a build script One spawn menu entry per design; the Ship tab changes a placed core live. This is the only
+-- place that maps a design to its model: the entity, spawn menu, tool and menu all read it from here.
 StarCore.Designs = {
 	{ id = "reactor_core",     family = "reactor",  model = "models/starcore/cores/reactor_core.mdl" },
 	{ id = "reactor_bak",      family = "reactor",  model = "models/starcore/cores/reactor_bak.mdl" },
@@ -165,8 +175,8 @@ StarCore.Designs = {
 	{ id = "military_cell",    family = "military", model = "models/starcore/cores/military_cell.mdl" },
 	{ id = "military_case",    family = "military", model = "models/starcore/cores/military_case.mdl" },
 }
--- the first four design ids (base-game placeholder models until 2026-10-25): old dupes, saved spawn lists and
--- tool settings keep working and get the best new model of their family
+-- the first four design ids (base-game placeholder models): old dupes, saved spawn lists and tool settings
+-- keep working and get the best new model of their family
 StarCore.DesignAliases = { reactor = "reactor_core", crystal = "crystal_cluster", alien = "alien_prism", military = "military_battery" }
 -- any id (old ones too) -> a valid design id
 function StarCore.DesignId(id)

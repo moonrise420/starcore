@@ -34,9 +34,9 @@ function StarCore.SyncNW(core)
 	core:SetNWBool("starcore_autodef", s.autoDefence == true)
 	core:SetNWBool("starcore_shieldauto", s.shieldAuto == true)
 	core:SetNWInt("starcore_theme", s.theme or 1)
-	-- AGP 2026-11-08: the ship's radar range for the screens (they drew a fixed 15000)
+	-- AGP: the ship's radar range for the screens (they drew a fixed 15000)
 	core:SetNWFloat("starcore_radar_range", s.radarRange or StarCore.Defaults.radarRange)
-	-- 2026-11-17: name, hull number and class for radar, HUD, screens and other ships' menus (sv_dock.lua)
+	-- name, hull number and class for radar, HUD, screens and other ships' menus (sv_dock.lua)
 	core:SetNWString("starcore_name", isstring(s.name) and s.name or "")
 	core:SetNWString("starcore_regno", isstring(s.regno) and s.regno or "")
 	if StarCore.ShipClassOf then core:SetNWString("starcore_class", StarCore.ShipClassOf(core)) end
@@ -69,7 +69,8 @@ function StarCore.Scan(core)
 			if e ~= core and e:GetClass() == "starcore" and (not other or e:EntIndex() < other:EntIndex()) then other = e end
 			if e:IsVehicle() then seats[#seats + 1] = e end
 			local p = e:GetPhysicsObject()
-			if not IsValid(e:GetParent()) and IsValid(p) then phys[#phys + 1] = e end
+			-- (e.StarCoreFollower: a body that follows another by itself - a SpaceGrid ship follows its keel)
+			if not IsValid(e:GetParent()) and IsValid(p) and not e.StarCoreFollower then phys[#phys + 1] = e end
 		end
 	end
 
@@ -137,8 +138,8 @@ function StarCore.Scan(core)
 		end
 	end
 	if StarCore.CrewAttach then StarCore.CrewAttach(core) end
-	-- 2026-11-17: the ship's own parts and box (class, docking checks, power); then the ships docked in it join the part
-	-- lists and the box (sv_dock.lua), after everything above has seen only its own parts
+	-- the ship's own parts and box (class, docking checks, power); then the ships docked in it join the part lists and
+	-- the box (sv_dock.lua), after everything above has seen only its own parts
 	core.OwnParts, core.OwnMins, core.OwnMaxs = parts, mins, maxs
 	StarCore.SyncNW(core)
 	if StarCore.DockAddCarried then StarCore.DockAddCarried(core) end
@@ -166,9 +167,9 @@ function StarCore.IsInside(core, ent)
 end
 
 -- limit + cleanup for the spawn menu / tool
--- AGP 2026-11-08: cleanup.Register("starcores") is in sh_config.lua now (the client's Cleanup menu needs it too)
--- AGP 2026-11-08: a core counts for its player once - spawned (PlayerSpawnedSENT: the spawn menu, AdvDupe2) or pasted
--- with the GMod duplicator (the core's PostEntityPaste, which AdvDupe2 calls too)
+-- AGP: cleanup.Register("starcores") is in sh_config.lua now (the client's Cleanup menu needs it too) AGP: a core
+-- counts for its player once - spawned (PlayerSpawnedSENT: the spawn menu, AdvDupe2) or pasted with the GMod
+-- duplicator (the core's PostEntityPaste, which AdvDupe2 calls too)
 StarCore.Counted = StarCore.Counted or setmetatable({}, { __mode = "k" })
 function StarCore.IsCounted(ent) return StarCore.Counted[ent] == true end
 function StarCore.CountCore(ply, ent)
@@ -184,8 +185,8 @@ hook.Add("PlayerSpawnedSENT", "StarCore.Limit", function(ply, ent)
 	end
 end)
 hook.Add("PlayerSpawnSENT", "StarCore.Limit", function(ply, class)
-	-- AGP 2026-11-08: the spawn menu hands over its list key ("starcore_<design>"), not the class: the limit never held
-	-- there. The class behind the key counts (the same cores StarCore.CountCore counts)
+	-- AGP: the spawn menu hands over its list key ("starcore_<design>"), not the class: the limit never held there. The
+	-- class behind the key counts (the same cores StarCore.CountCore counts)
 	local entry = isstring(class) and (list.GetEntry and list.GetEntry("SpawnableEntities", class) or list.GetForEdit("SpawnableEntities")[class])
 	local cls = istable(entry) and entry.ClassName or class
 	if cls == "starcore" and not ply:CheckLimit("starcores") then return false end

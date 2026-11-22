@@ -1,5 +1,5 @@
--- StarCore: the admin settings page (2026-11-16, first Workshop comment: "I'd like to be able to toggle everything in
--- an admin menu to make it fit well to my needs"). Every server setting of StarCore (sh_config.lua StarCore.CV and
+-- StarCore: the admin settings page (first Workshop comment: "I'd like to be able to toggle everything in an admin
+-- menu to make it fit well to my needs"). Every server setting of StarCore (sh_config.lua StarCore.CV and
 -- starcore_walk) as a checkbox / slider / choice in the spawn menu: Utilities > Admin > StarCore.
 -- The settings are replicated ConVars, so every player's page shows the server's values; a change goes to the server
 -- (net "starcore_admin_set"), which takes it only from an admin, clamps it to the setting's range and logs it.
@@ -13,7 +13,8 @@ local GROUPS = {
 		{ "jumpEnergy", "slider", 0 }, { "carryPlayers", "check" } } },
 	{ "admin_g_combat", {
 		{ "hull", "check" }, { "destroyMode", "choice", { "admin_destroy_0", "admin_destroy_1", "admin_destroy_2" } },
-		{ "maxWeapons", "slider", 0 }, { "allowAutoDefence", "check" }, { "targetPlayers", "check" },
+		{ "maxWeapons", "slider", 0 }, { "allowAutoDefence", "check" }, { "targetPlayers", "check" }, { "shootOwnShips", "check" },
+		{ "attackNotice", "slider", 0 },
 		{ "radarRange", "slider", 0 }, { "allowSelfDestruct", "check" }, { "selfDestructDamage", "slider", 0 } } },
 	{ "admin_g_beams", {
 		{ "allowTractor", "check" }, { "tractorRange", "slider", 0 }, { "tractorPlayers", "check" },

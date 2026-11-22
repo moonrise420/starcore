@@ -7,7 +7,7 @@ StarCore turns whatever you built into a real spaceship. Weld one core to your b
 ## Install
 **Steam Workshop (easiest):** subscribe [there](https://steamcommunity.com/sharedfiles/filedetails/?id=3840678974).
 
-**By hand:** download `starcore-1.0.2.zip` from [Releases](../../releases/latest) and unpack it into
+**By hand:** download `starcore-1.0.3.zip` from [Releases](../../releases/latest) and unpack it into
 `garrysmod/addons/` (you get the folder `garrysmod/addons/starcore`).
 
 ## Bugs, problems and wishes
@@ -29,18 +29,19 @@ Please use [Issues](../../issues): pick *Bug report* or *Wish or idea*. On the S
 ## What's inside
 
 ### Flight
-- Hover, height lock, WASD, turn, climb and dive, boost - or steer with the mouse
-- Keys you can change for looking around (Alt: hold or tap), mouse steering, hover, freeze, tractor beam (grab, pull in, push away), cloak and docking
+- Hover, height lock, WASD, turn, climb and dive, boost - or steer with the mouse, also in free flight with loops and rolls
+- Keys you can change for looking around (Alt: hold or tap), mouse steering, hover, freeze, tractor beam (grab, pull in, push away), cloak, docking and weapon aim
 - Walk around the bridge while the ship flies: nobody slides off
 - Autopilot: fly to a point or follow a target, climbing over obstacles on the way
-- Carriers: small ships dock in bigger ones and fly and jump with them
-- Hyperspace jumps to saved marks or coordinates, with safety checks before every jump, and three jump effects to choose from
+- Carriers: small ships dock in bigger ones and fly, jump and go through Stargates with them
+- Hyperspace jumps to saved marks or coordinates, with safety checks before every jump, and three jump effects to choose from. Loose cargo and standing players jump along
 
 ### Combat and crew
-- Radar with friend and foe, auto-defence, aim with lead for any Wire weapon that has a Fire input (CAP turrets, cannons, rail guns, Wire turrets)
+- Radar with friend and foe, auto-defence, and two ways to aim: at the radar target with lead, or at your crosshair. For any Wire weapon with a Fire or Launch input (Ascension Gates ship weapons, cannons, rail guns, Wire turrets)
 - Shields, cloak, self-destruct, a tractor beam you can see that grabs what you look at, pulls it in or pushes it away
 - Crew seats: pilot, gunner, engineer, passenger. Hull points from the ship's mass, repair tool, engineers repair on board
 - Owner, crew and friends are never targeted
+- With Ascension Gates, its admin setting decides how hard weapons hit the hull: as in the series or each weapon's own damage. Its ship weapons run on the ship's power: ZPMs, generators and batteries on the ship, cabled or not
 
 ### Stargate tie-in
 With Ascension Gates (or CAP, CAP Enhanced, EAP): the ship's own gate and iris, dialling from the ship window, auto-iris, jump to a gate, and Asgard beaming with the ship's transporter.
@@ -69,7 +70,7 @@ All Ascension Gates addons in one click: [Ascension Gates - Complete](https://st
 4. Press R for the ship window: helm, jump, radar, power, ship and settings - plus Stargate with a gate addon.
 
 ## Server settings
-Admins find StarCore's server settings in the spawn menu under *Utilities > Admin > StarCore*: speed and prop limits, jumps on/off, jump range and charge time, hull damage, weapons, tractor beams, cloak, fleets, self-destruct. Only admins can change them. The most cores per player is the console setting **sbox_maxstarcores**.
+Admins find StarCore's server settings in the spawn menu under *Utilities > Admin > StarCore*: speed and prop limits, jumps on/off, jump range and charge time, hull damage, weapons, shooting at your own other ships, how often "under attack" shows, tractor beams, cloak, fleets, self-destruct. Only admins can change them. The most cores per player is the console setting **sbox_maxstarcores**.
 
 ## Privacy
 StarCore collects nothing and never goes online on its own. The Workshop, GitHub and tip buttons in its menu only open a page when you click them.

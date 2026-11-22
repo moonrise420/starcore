@@ -36,13 +36,13 @@ local function ready(core)
 	local t = core.Transporter
 	if not IsValid(t) then return false, "beam_none" end
 	if (core.NextBeam or 0) > CurTime() then return false, "beam_busy" end
-	-- AGP 2026-11-08: the transporter's own recharge (CAP: 5 s, t.Next; ours was 3 s): a beam in between said
+	-- AGP: the transporter's own recharge (CAP: 5 s, t.Next; ours was 3 s): a beam in between said
 	-- "beam_failed" instead of "still recharging"
 	if isnumber(t.Next) and t.Next > CurTime() then return false, "beam_busy" end
 	return true
 end
 
--- AGP 2026-11-08: is anyone / anything on the pad that the transporter would take? ("beam down" with an empty pad said
+-- AGP: is anyone / anything on the pad that the transporter would take? ("beam down" with an empty pad said
 -- "beam_failed"). The same search the transporter makes, without the ship's own parts (it never beams those)
 local function padHasObjects(core)
 	local t = core.Transporter
@@ -82,7 +82,7 @@ function StarCore.BeamAboard(core, ply, ent)
 	local ok = beam(t, from, to, ply)
 	t.Radius = radius
 	if not ok then return false, "beam_failed" end
-	beamed(core)   -- AGP 2026-11-08
+	beamed(core)   -- AGP
 	hook.Run("StarCore.Event", core, "beam")
 	return true
 end
@@ -101,10 +101,10 @@ function StarCore.BeamDown(core, ply, ent)
 	end
 	if dest:Distance(core.Transporter:GetPos()) > StarCore.CV.beamRange:GetFloat() then return false, "beam_too_far" end
 	if not util.IsInWorld(dest) then return false, "outside_map" end
-	if not padHasObjects(core) then return false, "beam_nobody" end   -- AGP 2026-11-08
+	if not padHasObjects(core) then return false, "beam_nobody" end   -- AGP
 	if not enoughEnergy(core.Transporter, padPos(core), dest, 1) then return false, "beam_no_energy" end
 	if not beam(core.Transporter, padPos(core), dest, ply) then return false, "beam_failed" end
-	beamed(core)   -- AGP 2026-11-08
+	beamed(core)   -- AGP
 	hook.Run("StarCore.Event", core, "beam")
 	return true
 end

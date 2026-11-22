@@ -31,8 +31,8 @@ handlers.hover = function(core, ply, d)
 	return d.quiet == true   -- (the hover key of the pilot seat: no menu window comes up)
 end
 
--- 2026-11-14 (owner: "how can the player set for the starcore were oriantation forward is"): the ship's front = the way the
--- player looks now (stand facing the nose, press the button); clear = back to the pilot seat's / the core's own direction
+-- the ship's front = the way the player looks now (stand facing the nose, press the button); clear = back to the pilot
+-- seat's / the core's own direction
 handlers.front = function(core, ply, d)
 	if d.clear then
 		core.FrontYaw = nil
@@ -44,8 +44,8 @@ handlers.front = function(core, ply, d)
 	StarCore.Notify(ply, d.clear and "front_cleared" or "front_set", NOTIFY_GENERIC)
 end
 
--- 2026-11-15: first / third person for whoever sits in one of the ship's seats (Ctrl no longer does it in the pilot seat:
--- there Ctrl flies down, see StarCore.PilotNoDuckView in sv_helm.lua)
+-- first / third person for whoever sits in one of the ship's seats (Ctrl no longer does it in the pilot seat: there Ctrl
+-- flies down, see StarCore.PilotNoDuckView in sv_helm.lua)
 handlers.view = function(core, ply, d)
 	local veh = ply:GetVehicle()
 	if not (IsValid(veh) and veh.SetThirdPersonMode and core.Seats and table.HasValue(core.Seats, veh)) then return end
@@ -178,8 +178,8 @@ handlers.autopilot = function(core, ply, d)
 	if not ok then StarCore.Notify(ply, why, NOTIFY_ERROR) end
 end
 
--- 2026-11-17: the tractor aims with the camera the pilot sees (client: cl_hud.lua viewNow); a camera far away from the
--- ship and the player is not believed (then the player's own eyes)
+-- the tractor aims with the camera the pilot sees (client: cl_hud.lua viewNow); a camera far away from the ship and the
+-- player is not believed (then the player's own eyes)
 local function viewOf(ply, core, d)
 	local o, dir = d.vo, d.vd
 	if isvector(o) and isvector(dir) and dir:LengthSqr() > 0.5 then
@@ -192,8 +192,8 @@ end
 handlers.tractor = function(core, ply, d)
 	-- off, or the pilot's tractor key while the beam holds something: let go
 	if d.off or (d.toggle and core.Tractor and IsValid(core.Tractor.ent)) then StarCore.TractorSet(core, nil) return true end
-	-- the pull / push key (2026-11-18, owner) while the beam holds something: that thing is pulled / pushed; the same key
-	-- again: it is just held
+	-- the pull / push key while the beam holds something: that thing is pulled / pushed; the same key again: it is just
+	-- held
 	local tb = core.Tractor
 	if d.key and (d.mode == "pull" or d.mode == "push") and tb and IsValid(tb.ent) then
 		local ok, why = StarCore.TractorSet(core, tb.ent, tb.mode == d.mode and "hold" or d.mode)
@@ -219,7 +219,7 @@ handlers.cloak = function(core, ply, d)
 	return d.quiet == true   -- (the cloak key of the pilot seat: no menu window comes up)
 end
 
--- 2026-11-17 (owner: carriers): dock into the bigger ship this one is in, or let go (the pilot's dock key: quiet)
+-- (carriers): dock into the bigger ship this one is in, or let go (the pilot's dock key: quiet)
 handlers.dock = function(core, ply, d)
 	if core.DockedTo then
 		StarCore.Undock(core)
@@ -239,7 +239,7 @@ handlers.undock_all = function(core, ply, d)
 	StarCore.Notify(ply, "dock_released", NOTIFY_GENERIC, #list)
 end
 
--- 2026-11-17 (owner: "the name field should be free writable"): name, hull number, class (owner, friends, admins)
+-- name, hull number, class (owner, friends, admins)
 handlers.identity = function(core, ply, d)
 	if not StarCore.CanControl(core, ply, true) then StarCore.Notify(ply, "no_permission", NOTIFY_ERROR) return end
 	StarCore.SetIdentity(core, d)

@@ -2,16 +2,16 @@
 -- All of them can be switched off for the whole server by the admin (ConVars in sh_config.lua).
 
 -- ===== tractor beam: pull an object to the ship or hold it in front of the ship =====
--- 2026-11-17 (owner: "could only activate it once for the npc ... got the error that i cant grab what i see ... suddenly
--- had the whole stargate with ramp from spawn in my tractor beam"): it aimed with a thin line from the player's eyes, not
--- from the camera the pilot sees (third person, look-around, menu open), and it took anything with physics. Now it picks
--- what the pilot SEES: the client sends its camera (origin + direction); the best thing near the middle of the view
--- (an exact hit first, else the closest to the middle within a few degrees, bigger things count bigger), only things
--- in plain view and in reach. Never: the ship itself, Stargates / DHDs / ramps of others, anything the gate spawner or
--- the map placed, parented parts. A frozen prop is frozen again where the beam lets it go (like the physics gun).
--- 2026-11-17 (owner: "allow my own gates and props just everything from myself"): what the ship's owner or its pilot
--- spawned is always allowed, Stargates, DHDs and ramps too. Never, not even one's own: what the map or the gate spawner
--- placed, and parts fixed onto something else (a gate's inner ring).
+-- it aimed with a thin line from the player's eyes, not from the camera the pilot sees (third person, look-around, menu
+-- open), and it took anything with physics. Now it picks what the pilot SEES: the client sends its camera (origin +
+-- direction); the best thing near the middle of the view (an exact hit first, else the closest to the middle within a
+-- few degrees, bigger things count bigger), only things in plain view and in reach. Never: the ship itself,
+-- Stargates / DHDs / ramps of others, anything the gate spawner or the map placed, parented parts. A frozen prop is
+-- frozen again where the beam lets it go (like the physics gun).: what the ship's owner or its pilot spawned is always
+-- allowed, Stargates, DHDs and ramps too. Never, not even one's own: what the map or the gate spawner placed, and
+-- parts fixed onto something else (a gate's inner ring).
+--
+--
 local NO_TRACTOR = { "^stargate_", "^dhd_", "ramp", "^func_", "^prop_door", "^prop_dynamic", "^env_", "^info_", "^trigger_" }
 local function spawnedBy(ent, ply)
 	if not IsValid(ply) then return false end
@@ -56,7 +56,7 @@ function StarCore.TractorPick(core, origin, dir, viewer)
 	local range = StarCore.CV.tractorRange:GetFloat()
 	local center = StarCore.ShipCenter(core)
 	-- not in the way: the ship itself, the pilot and the pilot's seat (a line from the eyes down to something below the
-	-- middle of the view went through the pilot's own body - 2026-11-17 test)
+	-- middle of the view went through the pilot's own body - test)
 	local ownSet = {}
 	for _, e in ipairs(core.Parts or {}) do ownSet[e] = true end
 	if IsValid(viewer) then
@@ -139,8 +139,8 @@ function StarCore.TractorThink(core)
 	local c = StarCore.ShipCenter(core)
 	local shipAng = core:LocalToWorldAngles(core.Helm and core.Helm.refAng or Angle())
 	if tb.mode == "pull" then tb.hold = math.max(tb.hold - 400 * FrameTime(), (core:GetNWVector("starcore_size"):Length() * 0.5) + 100) end
-	-- 2026-11-17 (owner: "push would be great too for tractor beam"): pushed away faster and faster; at the end of the
-	-- beam's reach it lets go and the thing flies on
+	-- pushed away faster and faster; at the end of the beam's reach it lets go and the thing flies on
+	--
 	if tb.mode == "push" then
 		tb.pushSpeed = math.min((tb.pushSpeed or 300) + 900 * FrameTime(), 1500)
 		tb.hold = tb.hold + tb.pushSpeed * FrameTime()
@@ -263,6 +263,32 @@ hook.Add("StarCore.Jumped", "StarCore.Fleet", function(leader, from, to)
 end)
 
 -- ===== self-destruct: owner only, countdown, can be cancelled =====
+-- The sounds: his picks, from AGP's Stargate sounds. StarCore also runs without AGP: then the game's own sound nearest
+-- to each pick.
+local DESTRUCT_SND = {
+	start = { "alarm/sga_midway_selfdestruct.wav", "ambient/alarms/klaxon1.wav" },   -- when the countdown starts (5.7 s)
+	again = { "alarm/sgc_evac_alarm.wav", "ambient/alarms/klaxon1.wav" },            -- again while it counts
+	tick = { "glebqip/self_destruct_beep.wav", "buttons/blip1.wav" },                -- every second
+	last = { "glebqip/self_destruct_beep3.wav", "buttons/blip1.wav" },               -- the last 3 seconds
+	stop = { "glebqip/computer_end.wav", "buttons/button9.wav" },                    -- stopped
+	boom = { "ambient/explosions/exp2.wav" },                                        -- the ship blows up
+}
+local AGAIN_AT = { [4] = true, [1] = true }   -- (seconds left: every 3 s once the start alarm is over)
+local sndCache = {}
+function StarCore.DestructSound(kind)
+	if sndCache[kind] == nil then
+		sndCache[kind] = false
+		for _, f in ipairs(DESTRUCT_SND[kind] or {}) do
+			if file.Exists("sound/" .. f, "GAME") then sndCache[kind] = f break end
+		end
+	end
+	return sndCache[kind] or nil
+end
+local function destructSound(core, kind, level)
+	local f = StarCore.DestructSound(kind)
+	if f then core:EmitSound(f, level or 95, 100) end
+end
+
 function StarCore.SelfDestruct(core, ply, start)
 	local owner = core:GetNWEntity("starcore_owner")
 	if ply ~= owner and not (IsValid(ply) and ply:IsAdmin()) then return false, "no_permission" end
@@ -271,6 +297,11 @@ function StarCore.SelfDestruct(core, ply, start)
 		if timer.Exists(name) then
 			timer.Remove(name)
 			core:SetNWFloat("starcore_destruct", 0)
+			for _, k in ipairs({ "start", "again" }) do
+				local f = StarCore.DestructSound(k)
+				if f then core:StopSound(f) end
+			end
+			destructSound(core, "stop", 90)
 			hook.Run("StarCore.Event", core, "self_destruct_stop")
 		end
 		return true
@@ -281,6 +312,7 @@ function StarCore.SelfDestruct(core, ply, start)
 	core:SetNWFloat("starcore_destruct", CurTime() + secs)
 	local left = secs
 	hook.Run("StarCore.Event", core, "self_destruct", left)
+	destructSound(core, "start", 100)
 	timer.Create(name, 1, secs, function()
 		if not IsValid(core) then timer.Remove(name) return end
 		left = left - 1
@@ -288,7 +320,10 @@ function StarCore.SelfDestruct(core, ply, start)
 			core.VoiceLast = nil -- every count is spoken
 			hook.Run("StarCore.Event", core, "self_destruct", left)
 		end
-		core:EmitSound("buttons/blip1.wav", 90, left <= 3 and 140 or 110)
+		if left > 0 then
+			destructSound(core, left <= 3 and "last" or "tick", 90)
+			if AGAIN_AT[left] then destructSound(core, "again", 100) end
+		end
 		if left <= 0 then StarCore.Explode(core) end
 	end)
 	return true
@@ -301,11 +336,14 @@ function StarCore.Explode(core)
 	local level = math.Clamp(math.floor(tonumber(core.Settings and core.Settings.destructSize) or 2), 1, #StarCore.DestructSizes)
 	local radius, dmg = StarCore.DestructBlast(core:GetNWVector("starcore_size"):Length(), level)
 	local owner = core:GetNWEntity("starcore_owner")
+	-- one blast sound for the whole ship (the author's pick); the explosions below are silent (TE_EXPLFLAG_NOSOUND)
+	local boom = StarCore.DestructSound("boom")
+	if boom then sound.Play(boom, c, 140, 100, 1) end
 	for i, e in ipairs(parts) do
 		if IsValid(e) and not e:IsPlayer() then
 			timer.Simple(math.min(i * 0.03, 1.5), function()
 				if not IsValid(e) then return end
-				local fx = EffectData(); fx:SetOrigin(e:WorldSpaceCenter()); fx:SetMagnitude(2 + level); fx:SetScale(1 + level * 0.5)
+				local fx = EffectData(); fx:SetOrigin(e:WorldSpaceCenter()); fx:SetMagnitude(2 + level); fx:SetScale(1 + level * 0.5); fx:SetFlags(4)
 				if i % 3 == 1 then util.Effect("Explosion", fx) end
 				e:Remove()
 			end)
@@ -314,7 +352,7 @@ function StarCore.Explode(core)
 	-- bigger blasts: a few extra explosions spread over the blast area
 	for k = 1, (level - 1) * 2 do
 		timer.Simple(0.2 + k * 0.15, function()
-			local fx = EffectData(); fx:SetOrigin(c + VectorRand() * radius * 0.4); fx:SetMagnitude(4); fx:SetScale(3)
+			local fx = EffectData(); fx:SetOrigin(c + VectorRand() * radius * 0.4); fx:SetMagnitude(4); fx:SetScale(3); fx:SetFlags(4)
 			util.Effect("Explosion", fx)
 		end)
 	end

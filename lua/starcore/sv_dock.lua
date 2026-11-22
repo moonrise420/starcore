@@ -1,5 +1,5 @@
--- StarCore server: ship names, hull numbers, classes, and carriers (2026-11-17, owner: "Carriers and docking ... do 1 it
--- sounds great" and "Ship names and classes ... the name field should be free writable").
+-- StarCore server: ship names, hull numbers, classes, and carriers.
+--
 --
 -- Docking: a ship whose middle is inside the box of a bigger StarCore ship (its hangar, or on its deck) locks into it with
 -- the dock key (N), the Helm tab button or the Wire input Dock, when it is slow. While docked it flies, freezes and jumps
@@ -8,8 +8,8 @@
 -- tick, in the place they had when it docked (StarCore.DockThink), and the big ship moves them as its own parts
 -- (StarCore.Scan adds them to its part lists: flying, freezing, jumping). The two ships stay two ships (each its own
 -- core, parts, seats, menu, weapons and hull) and the duplicator saves nothing of the docking.
--- (2026-11-17: the first version held the ships with a physics weld outside GMod's constraint systems; in 2 of 6 game
--- runs the big ship's own welds slipped with it - its deck plate turned ~15 degrees against its core.)
+-- (the first version held the ships with a physics weld outside GMod's constraint systems; in 2 of 6 game runs the
+-- big ship's own welds slipped with it - its deck plate turned ~15 degrees against its core.)
 
 -- texts from players: no control characters, trimmed, at most max letters (UTF-8 safe)
 local function clean(s, max)
@@ -17,7 +17,7 @@ local function clean(s, max)
 	s = s:gsub("%c", ""):gsub("^%s+", ""):gsub("%s+$", "")
 	local n = utf8 and utf8.len(s)
 	if n and n > max then
-		-- (letter by letter: GMod's utf8.offset cut one letter too late in the game test 2026-11-17)
+		-- (letter by letter: GMod's utf8.offset cut one letter too late in the game test)
 		local out, k = {}, 0
 		for _, c in utf8.codes(s) do
 			k = k + 1
@@ -88,7 +88,7 @@ function StarCore.SetIdentity(core, d)
 	StarCore.SyncNW(core)
 end
 
--- the class shown (the owner's pick, or from the ship's own length and weapons: docked ships do not count)
+-- the class shown (the author's pick, or from the ship's own length and weapons: docked ships do not count)
 function StarCore.ShipClassOf(core)
 	local s = core.Settings or {}
 	if s.class ~= "auto" and StarCore.ValidClass(s.class) then return s.class end
@@ -246,13 +246,13 @@ end
 -- the big ship's root part (its speed and turning), a small way off its place is made up softly (in a quarter second),
 -- and only a part far off (8 units, 2 degrees: knocked hard) is put back at once. A frozen big ship has frozen the
 -- docked parts too (StarCore.DockAddCarried): nothing to do then.
--- (2026-11-18: put back at once from 1 unit off, the docked ship shook while the big ship flew - owner)
+-- (put back at once from 1 unit off, the docked ship shook while the big ship flew - owner)
 local CATCHUP = 4   -- per second: a quarter second to make up a small way off
 local function offTooFar(e, pos, ang)
 	if e:GetPos():DistToSqr(pos) > 64 then return true end
 	-- (its angles against its saved angles, both from GetAngles: a seat's GetForward() is 90 degrees off its angles, so
 	-- every docked seat counted as turned away and was put back every tick - the weld fought that and now and then
-	-- kicked the docked ship off its place, 2026-11-18)
+	-- kicked the docked ship off its place)
 	local a = e:GetAngles()
 	return a:Forward():Dot(ang:Forward()) < 0.99939 or a:Up():Dot(ang:Up()) < 0.99939
 end
@@ -318,9 +318,9 @@ function StarCore.DockAddCarried(core)
 	core.Parts, core.PhysParts = parts, phys
 	core.LocalMins, core.LocalMaxs = mins, maxs
 	-- the docked ships and the big ship do not push each other. The set of the big ship's parts stays the same table and
-	-- the docked parts are told again only when it changed (2026-11-18: a new set in every scan, every 2 s, told the
-	-- physics each time that the collision rules changed; it checked the docked ship's contacts again and kicked it 3-6
-	-- units off its place in one tick, about 2 s into a flight - test ptdock, 3 of 6 runs)
+	-- the docked parts are told again only when it changed (a new set in every scan, every 2 s, told the physics
+	-- each time that the collision rules changed; it checked the docked ship's contacts again and kicked it 3-6 units
+	-- off its place in one tick, about 2 s into a flight - test ptdock, 3 of 6 runs)
 	local set, own, changed = core.DockNoCollide or {}, {}, false
 	for _, e in ipairs(core.OwnParts or {}) do
 		if IsValid(e) then
@@ -334,3 +334,27 @@ function StarCore.DockAddCarried(core)
 	core.DockNoCollide = set
 	for _, d in ipairs(docked) do dockTouch(d.OwnParts or d.Parts, set, changed) end
 end
+
+-- through a Stargate: a docked ship goes along with the ship it is docked in (Ascension Gates asks with
+-- "StarGate.TeleportAlong"; e and list = the contraption going through, along = what may come with it). Nothing holds
+-- a docked ship to its carrier, so the gate saw only the carrier; the docked ship met the far gate alone and was lost.
+hook.Add("StarGate.TeleportAlong", "StarCore.Docked", function(e, list, along)
+	local carriers = {}
+	local function look(v)
+		if not IsValid(v) then return end
+		local c = v:GetClass() == "starcore" and v or (StarCore.PartCore and StarCore.PartCore[v])
+		if IsValid(c) then carriers[c] = true end
+	end
+	look(e)
+	for _, v in ipairs(list or {}) do look(v) end
+	for c in pairs(carriers) do
+		for _, d in ipairs(StarCore.DockedShips(c)) do
+			if not carriers[d] then
+				along[#along + 1] = d
+				for _, p in ipairs(d.OwnParts or d.Parts or {}) do
+					if IsValid(p) and not p:IsPlayer() then along[#along + 1] = p end
+				end
+			end
+		end
+	end
+end)

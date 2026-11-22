@@ -8,7 +8,6 @@ The twelve core designs use these Sketchfab models. Each is licensed under
 [Creative Commons Attribution 4.0](https://creativecommons.org/licenses/by/4.0/) (CC BY 4.0) and was
 **converted and resized for StarCore** (glTF to Source model, scale ~30-60 cm, orientation, 512 px textures;
 `military_case`: the floating lid and the loose battery/rod in front of the case were removed).
-Converter: `notes/models/starcore_cores.py` in the development folder.
 
 | Design id | Model | Author | Link | Licence |
 |---|---|---|---|---|

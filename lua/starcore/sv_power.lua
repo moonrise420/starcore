@@ -27,9 +27,9 @@ function StarCore.PowerAttach(core)
 	core:SetNWInt("starcore_shields", #core.Shields)
 end
 
--- AGP 2026-11-08: the energy the ship really has, as its parts see it through the resource network: PowerGrid's own
--- network, or Spacebuild's Resource Distribution when that carries the energy. Before, only ZPM-like sources (their
--- own reserve) and one Ascension Gates RD part were read: a ship powered by PowerGrid cells / solar panels showed "no
+-- AGP: the energy the ship really has, as its parts see it through the resource network: PowerGrid's own network,
+-- or Spacebuild's Resource Distribution when that carries the energy. Before, only ZPM-like sources (their own
+-- reserve) and one Ascension Gates RD part were read: a ship powered by PowerGrid cells / solar panels showed "no
 -- power" (no low-power warnings, starcore_jump_energy never charged), and in manual mode an unlinked ZPM showed
 -- "Power 100 %" while the shield and transporter had nothing. Now every network the ship's parts are in counts once,
 -- when something is connected in it (a lone, unlinked part feeds nothing), and a source's reserve only when the source
@@ -94,19 +94,28 @@ function StarCore.PowerNets(core)
 	local RD = not P and rdNet()
 	if not P and not RD then return nil end
 	local nets, inNet, done, counted = {}, {}, {}, {}
-	for _, e in ipairs(core.OwnParts or core.Parts or {}) do   -- (2026-11-17: not the docked ships' parts)
+	for _, e in ipairs(core.OwnParts or core.Parts or {}) do   -- (not the docked ships' parts)
 		if P and IsValid(e) and P.Parts[e] and not done[e] then pgAdd(P, e, nets, inNet, done, counted)
 		elseif RD and IsValid(e) then rdAdd(RD, e, nets, inNet, done) end
 	end
 	return nets, inNet
 end
 
+-- (a ZPM hub welded in his ship, "still no energy") With Ascension Gates' ship power on (agp_ship_power,
+-- default on) a source welded on the ship feeds the ship's weapons and shields linked or not - "on a ship, the ship
+-- is its cable" - so the power page and the HUD count it too (before: "no power" with a full ZPM aboard).
+local function feeds(e, nets, inNet)
+	if not nets or inNet[e] then return true end
+	local cv = StarGate and StarGate.ShipEnergy and GetConVar("agp_ship_power")
+	return cv ~= nil and cv:GetBool()
+end
+
 -- total stored energy of the ship (sources + the resource network if there is one)
 function StarCore.PowerTotals(core)
-	local nets, inNet = StarCore.PowerNets(core)   -- AGP 2026-11-08
+	local nets, inNet = StarCore.PowerNets(core)   -- AGP
 	local total, max = 0, 0
 	for _, e in ipairs(core.PowerSources or {}) do
-		if IsValid(e) and (not nets or inNet[e]) then total = total + math.max(e.Energy, 0); max = max + e.MaxEnergy end
+		if IsValid(e) and feeds(e, nets, inNet) then total = total + math.max(e.Energy, 0); max = max + e.MaxEnergy end
 	end
 	local net, netCap = 0, 0
 	if nets then
@@ -193,6 +202,9 @@ end
 
 -- auto-raise: when the ship gets hit and the shield is down
 hook.Add("EntityTakeDamage", "StarCore.ShieldAuto", function(ent, dmg)
+	-- the own ship's shots and blasts (AGP weapons on this ship) never count: AGP blocks them too, but the order of
+	-- damage hooks is not fixed
+	if StarGate and StarGate.OwnShipDamage and StarGate.OwnShipDamage(ent, dmg) then return end
 	local core = StarCore.PartCore and StarCore.PartCore[ent]
 	if not IsValid(core) or not core.Settings.shieldAuto then return end
 	if (core.NextAutoShield or 0) > CurTime() then return end
@@ -203,7 +215,7 @@ hook.Add("EntityTakeDamage", "StarCore.ShieldAuto", function(ent, dmg)
 end)
 
 -- optional: hyperspace jumps cost energy (server setting starcore_jump_energy, per 1000 units; needs a resource network)
--- AGP 2026-11-08: the ship's networks pay (StarCore.PowerNets); only with no network running, the one RD part as before
+-- AGP: the ship's networks pay (StarCore.PowerNets); only with no network running, the one RD part as before
 function StarCore.JumpCost(core, dist)
 	local per = StarCore.CV.jumpEnergy:GetFloat()
 	if per <= 0 then return 0 end
@@ -258,9 +270,9 @@ end
 -- menu data: the sources one by one
 function StarCore.PowerState(core)
 	local list = {}
-	local nets, inNet = StarCore.PowerNets(core)   -- AGP 2026-11-08: only sources that feed the ship (see PowerTotals)
+	local nets, inNet = StarCore.PowerNets(core)   -- AGP: only sources that feed the ship (see PowerTotals)
 	for _, e in ipairs(core.PowerSources or {}) do
-		if IsValid(e) and (not nets or inNet[e]) then list[#list + 1] = { class = e:GetClass(), pct = math.floor(math.max(e.Energy, 0) / e.MaxEnergy * 100) } end
+		if IsValid(e) and feeds(e, nets, inNet) then list[#list + 1] = { class = e:GetClass(), pct = math.floor(math.max(e.Energy, 0) / e.MaxEnergy * 100) } end
 	end
 	local _, _, net, netCap = StarCore.PowerTotals(core)
 	return { sources = list, net = math.floor(net), netCap = math.floor(netCap), shields = #(core.Shields or {}),

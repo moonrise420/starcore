@@ -49,7 +49,7 @@ net.Receive("starcore_voice", function()
 	for _, p in ipairs({ "starcore/voice/" .. lang .. "/" .. event .. ".wav", "starcore/voice/" .. event .. ".wav" }) do
 		if file.Exists("sound/" .. p, "GAME") then snd = p break end
 	end
-	-- (2026-11-12, owner: only real audio - the generated chime tones are gone: sounds every Garry's Mod has)
+	-- (only real audio - the generated chime tones are gone: sounds every Garry's Mod has)
 	surface.PlaySound(snd or CHIME[level] or CHIME.info)
 	subtitle = StarCore.T("voice_" .. event, arg)
 	subtitleUntil = CurTime() + 4

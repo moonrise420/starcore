@@ -22,15 +22,15 @@ end
 -- mouse steering: in the pilot seat the mouse flies the ship, so the view stays still (the look-around key frees it)
 local cvMouse = GetConVar("starcore_mouse_steer")
 
--- keys of the pilot seat (2026-11-16, a Workshop player: "make look around on mouse steering toggleable or to the same
--- effect keybinds for things like mouse steering and hover"). Picked in the menu's Settings tab, 0 = no key.
--- Look around = Alt by default, held or tapped on/off (starcore_look_toggle): the view is free and the helm ignores the
+-- keys of the pilot seat (a Workshop player: "make look around on mouse steering toggleable or to the same effect
+-- keybinds for things like mouse steering and hover"). Picked in the menu's Settings tab, 0 = no key. Look
+-- around = Alt by default, held or tapped on/off (starcore_look_toggle): the view is free and the helm ignores the
 -- mouse (starcore_looking tells the server, sv_helm.lua). Also console commands for binds: starcore_toggle_look/_mouse/_hover/_freeze.
 local cvKeyLook, cvKeyMouse, cvKeyHover = GetConVar("starcore_key_look"), GetConVar("starcore_key_mouse"), GetConVar("starcore_key_hover")
 local cvKeyFreeze = GetConVar("starcore_key_freeze")   -- (same comment, edited: "un-/freeze the whole ship with a keybind")
-local cvKeyTractor, cvKeyCloak = GetConVar("starcore_key_tractor"), GetConVar("starcore_key_cloak")   -- (owner 2026-11-17)
-local cvKeyDock = GetConVar("starcore_key_dock")   -- (owner 2026-11-17: carriers, sv_dock.lua)
-local cvKeyPull, cvKeyPush = GetConVar("starcore_key_tractor_pull"), GetConVar("starcore_key_tractor_push")   -- (owner 2026-11-18)
+local cvKeyTractor, cvKeyCloak = GetConVar("starcore_key_tractor"), GetConVar("starcore_key_cloak")   --
+local cvKeyDock = GetConVar("starcore_key_dock")   -- (carriers, sv_dock.lua)
+local cvKeyPull, cvKeyPush = GetConVar("starcore_key_tractor_pull"), GetConVar("starcore_key_tractor_push")   --
 local cvLookToggle = GetConVar("starcore_look_toggle")
 StarCore.Looking = false
 local function setLooking(on)
@@ -71,8 +71,8 @@ function StarCore.ViewNow()
 	return EyePos(), EyeVector()
 end
 -- tractor key: grab what you look at, or let go when the beam holds something
--- pull / push keys (2026-11-18, owner): the held thing is pulled in / pushed away; nothing held: grab what you look at
--- and pull / push it; the same key again: it is just held (sv_net.lua handlers.tractor)
+-- pull / push keys: the held thing is pulled in / pushed away; nothing held: grab what you look at and pull / push it;
+-- the same key again: it is just held (sv_net.lua handlers.tractor)
 local function toggleTractor(core, mode)
 	local o, d = StarCore.ViewNow()
 	net.Start("starcore_cmd")
@@ -118,6 +118,71 @@ hook.Add("Think", "StarCore.Keys", function()
 	if pullPress then toggleTractor(core, "pull") end
 	if pushPress then toggleTractor(core, "push") end
 end)
+-- Aim (the owner): auto = the weapons go for the radar target; crosshair = they go for the point under the
+-- crosshair (sv_combat.lua, fireAtPoint). Gunners start on the crosshair, the pilot on auto; starcore_key_aim
+-- (middle mouse) switches. While on the crosshair the point is sent to the server 10 times a second.
+local cvKeyAim = GetConVar("starcore_key_aim")
+StarCore.AimManual = false
+local aimSeat, nextAim = nil, 0
+-- the line under the crosshair says how the weapons aim only for a few seconds: after sitting down and after a switch
+-- On sitting down only the first time in a game; after a switch for 3 seconds
+-- (it says which aim is on).
+--
+local AIM_HINT, AIM_HINT_SWITCH = 6, 3
+local aimHintUntil, aimHintShown = 0, false
+local function crewSeat()
+	local ply = LocalPlayer()
+	if not ply:InVehicle() then return end
+	local veh = ply:GetVehicle()
+	local c = veh:GetNWEntity("starcore")
+	if not IsValid(c) then return end
+	local role = veh:GetNWString("starcore_role", "passenger")
+	if role ~= "gunner" and role ~= "pilot" then return end
+	return c, veh, role
+end
+local function toggleAim()
+	if not crewSeat() then return end
+	StarCore.AimManual = not StarCore.AimManual
+	aimHintUntil = CurTime() + AIM_HINT_SWITCH
+	surface.PlaySound("buttons/lightswitch2.wav")
+end
+hook.Add("Think", "StarCore.AimKey", function()
+	local press = keyEdge(cvKeyAim)
+	local core, veh, role = crewSeat()
+	if not core then aimSeat = nil StarCore.AimManual = false return end
+	if veh ~= aimSeat then
+		aimSeat = veh
+		StarCore.AimManual = role == "gunner"
+		if not aimHintShown then aimHintShown = true aimHintUntil = CurTime() + AIM_HINT end
+	end
+	local ply = LocalPlayer()
+	if vgui.GetKeyboardFocus() or gui.IsGameUIVisible() or gui.IsConsoleVisible() or input.IsKeyTrapping() or ply:IsTyping() then return end
+	if press then toggleAim() end
+end)
+concommand.Add("starcore_toggle_aim", toggleAim)
+-- (in a drawing hook: EyePos / EyeAngles are the view as drawn - also SpaceGrid's view from behind the ship)
+hook.Add("HUDPaint", "StarCore.Aim", function()
+	local core = crewSeat()
+	if not core then return end
+	local cx, cy = ScrW() / 2, ScrH() / 2
+	local keyName = (cvKeyAim:GetInt() > 0 and input.GetKeyName(cvKeyAim:GetInt()) or "-")
+	if StarCore.AimManual then
+		if CurTime() >= nextAim then
+			nextAim = CurTime() + 0.1
+			-- (where the view is and where it looks: the server traces the line past every part of the own ship,
+			-- sv_combat.lua - this game does not know all of them)
+			net.Start("starcore_aim") net.WriteVector(EyePos()) net.WriteNormal(EyeAngles():Forward()) net.SendToServer()
+		end
+		surface.SetDrawColor(120, 220, 255, 230)
+		surface.DrawLine(cx - 12, cy, cx - 4, cy) surface.DrawLine(cx + 4, cy, cx + 12, cy)
+		surface.DrawLine(cx, cy - 12, cx, cy - 4) surface.DrawLine(cx, cy + 4, cx, cy + 12)
+		if CurTime() < aimHintUntil then
+			draw.SimpleTextOutlined(T("aim_manual", string.upper(keyName)), "DermaDefaultBold", cx, cy + 40, Color(120, 220, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP, 1, color_black)
+		end
+	elseif CurTime() < aimHintUntil then
+		draw.SimpleTextOutlined(T("aim_auto", string.upper(keyName)), "DermaDefault", cx, cy + 40, Color(220, 220, 220, 200), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP, 1, color_black)
+	end
+end)
 concommand.Add("starcore_toggle_look", function() if pilotCore() then setLooking(not StarCore.Looking) end end)
 concommand.Add("starcore_toggle_mouse", function() toggleMouse() end)
 concommand.Add("starcore_toggle_hover", function() local c = pilotCore() if c then toggleHover(c) end end)
@@ -128,8 +193,8 @@ concommand.Add("starcore_toggle_dock", function() local c = pilotCore() if c the
 concommand.Add("starcore_tractor_pull", function() local c = pilotCore() if c then toggleTractor(c, "pull") end end)
 concommand.Add("starcore_tractor_push", function() local c = pilotCore() if c then toggleTractor(c, "push") end end)
 
--- the tractor beam can be seen (2026-11-17, owner: it was not clear what it held): a soft light beam from the ship to the
--- held thing for everyone; for the crew of the ship also an outline around it
+-- the tractor beam can be seen (it was not clear what it held): a soft light beam from the ship to the held thing for
+-- everyone; for the crew of the ship also an outline around it
 local beamMat = Material("sprites/physbeama")
 local glowMat = Material("sprites/light_glow02_add")
 local BEAM = Color(120, 200, 255)
@@ -171,8 +236,9 @@ hook.Add("PreDrawHalos", "StarCore.TractorHalo", function()
 	if IsValid(e) then halo.Add({ e }, BEAM, 2, 2, 1, true, true) end
 end)
 
+local cvFree = GetConVar("starcore_free_flight")
 hook.Add("InputMouseApply", "StarCore.MouseSteer", function(cmd, x, y, ang)
-	if not cvMouse:GetBool() or StarCore.Looking then return end
+	if not (cvMouse:GetBool() or (cvFree and cvFree:GetBool())) or StarCore.Looking then return end
 	local core = shipCore()
 	local ply = LocalPlayer()
 	if not IsValid(core) or not ply:InVehicle() or core:GetNWEntity("starcore_pilotseat") ~= ply:GetVehicle() then return end
@@ -180,16 +246,16 @@ hook.Add("InputMouseApply", "StarCore.MouseSteer", function(cmd, x, y, ang)
 	return true -- mouse moves still reach the server (cmd mouse x/y), only the view does not turn
 end)
 
--- pilot HUD (2026-11-17, owner: "the hud now underlaps the health bar ... at the same height as the health bar and also
--- using the same height space ... not so wide maybe in 2 rows ... 4 different variations"). It sits in the band of the
--- game's health box: the game lays its HUD out on a 640x480 base that grows with the screen height (health box 16..118
--- wide, 432..468 high; armour box up to 248). Ours stands centred in that band, two rows.
--- starcore_hud_look picks the look: 1 slim, no box (the default), 2 the ship's theme, 3 panels with gauges (owner
--- 2026-11-17 picked the slim one and left the Stargate ships' plate out again).
--- Second round (2026-11-17, owner: "whats the longest word and how wide would it need to be to not cut of words ...
--- always everything centered like now and maybe dynamic wideing so longer words fit instead of cut off"): every style
--- is as wide as its texts need (need2..need4 below; the slim look 1 uses need4), centred, at most up to the health / armour box (and as far on the
--- right). Only past that limit the least important text ends in "…". starcore_hud_measure prints the widths.
+-- pilot HUD. It sits in the band of the game's health box: the game lays its HUD out on a 640x480 base that grows with
+-- the screen height (health box 16..118 wide, 432..468 high; armour box up to 248). Ours stands centred in that band,
+-- two rows. starcore_hud_look picks the look: 1 slim, no box (the default), 2 the ship's theme, 3 panels with gauges
+-- (picked the slim one and left the Stargate ships' plate out again). Second round: every
+-- style is as wide as its texts need (need2..need4 below; the slim look 1 uses need4), centred, at most up to the
+-- health / armour box (and as far on the right). Only past that limit the least
+-- important text ends in "…". starcore_hud_measure prints the widths.
+--
+--
+--
 local cvHud, cvStyle = GetConVar("starcore_hud"), GetConVar("starcore_hud_look")
 local F_TITLE, F_TEXT, F_SMALL = "StarCoreHUD", "StarCoreHUDText", "StarCoreHUDSmall"
 local F4_TITLE, F4_TEXT, F4_SMALL = "StarCoreHUD4", "StarCoreHUD4Text", "StarCoreHUD4Small"   -- the slim style: a bit bigger
@@ -282,7 +348,7 @@ local function dockName(name)
 end
 local function gather(core, ply)
 	local veh = ply:GetVehicle()
-	-- 2026-11-17: the ship's name instead of "StarCore" (owner: ship names and classes)
+	-- the ship's name instead of "StarCore" (ship names and classes)
 	local title = StarCore.ShipTitle and StarCore.ShipTitle(core) or ""
 	if title == "" then title = "StarCore" end
 	local role = veh:GetNWString("starcore_role", "pilot")
@@ -299,9 +365,9 @@ local function gather(core, ply)
 
 	H.speed = T("hud_speed", U.Speed(core:GetNWFloat("starcore_speed")))
 	H.alt = T("hud_alt", U.Alt(core:GetNWFloat("starcore_alt")))
-	-- the charge line (owner 2026-11-17: "if it is full i want it to stay blue"): StarCore.FTLText gives a rising part
-	-- while charging, 1 while jumping, 0 in the cooldown and when ready; the state is read here too, so the line is
-	-- full for the whole jump and gone right after it, whatever arrives first from the server
+	-- the charge line: StarCore.FTLText gives a rising part while charging, 1 while jumping, 0 in the cooldown and
+	-- when ready; the state is read here too, so the line is full for the whole jump and gone right after it,
+	-- whatever arrives first from the server
 	local ftl, frac = StarCore.FTLText(core)
 	local st = core:GetNWInt("starcore_ftl")
 	if st == FTL.JUMPING then frac = 1 elseif st ~= FTL.CHARGING then frac = 0 end
@@ -598,16 +664,16 @@ hook.Add("HUDPaint", "StarCore.HUD", function()
 	drawTarget(core, scrw / 2, y - round(3 * s), limit, s, bg, corner)
 end)
 
--- starcore_hud_measure (2026-11-17, owner: "what is our longest word? so how wide would it need to be the hud that
--- its fit?"): the width every style needs for the longest texts the HUD can show in the language set right now, and
--- for a usual ship. It fills H like gather does and asks need2..need4, the same code HUDPaint takes its width from.
--- Longest: a name of StarCore.NameShow "W", a 12 character hull number, every class; every state line (hover on / off
--- with frozen, autopilot and cloaked, or docked in a ship with such a name; the pilot also with mouse steering /
--- looking around, the other seats with their role behind the name); 2500 per second, 99999 high (in the player's
--- unit); hull, power and shield 100 % or the shield off; every jump drive text (cooldown 600 s); the hint or the
--- self-destruct countdown. One line per style:
--- AGP_RESULT INFO hudmeasure <language> style <n> worst <px> <% of the screen width> limit <px> fits <yes/no>
---   realistic <px> <%> limit_armour <px, the limit while the player has armour>
+-- starcore_hud_measure: the width every style needs for the longest texts the HUD can show in the language set
+-- right now, and for a usual ship. It fills H like gather does and asks need2..need4, the same code HUDPaint takes
+-- its width from. Longest: a name of StarCore.NameShow "W", a 12 character hull number, every class; every state
+-- line (hover on / off with frozen, autopilot and cloaked, or docked in a ship with such a name; the pilot also with
+-- mouse steering / looking around, the other seats with their role behind the name); 2500 per second, 99999 high
+-- (in the player's unit); hull, power and shield 100 % or the shield off; every jump drive text (cooldown 600
+-- s); the hint or the self-destruct countdown. One line per style: AGP_RESULT INFO hudmeasure <language> style
+-- <n> worst <px> <% of the screen width> limit
+-- <px> fits <yes/no> realistic <px> <%> limit_armour <px, the limit while the player has armour>
+--
 local SEAT_ROLES = { "gunner", "engineer", "passenger" }   -- (StarCore.ROLES is known to the server only)
 local function testTitle(name, no, class, role)
 	local t = name .. " " .. no .. " · " .. T("class_" .. class)

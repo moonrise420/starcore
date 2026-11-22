@@ -1,27 +1,27 @@
 -- StarCore server, level 2 (Wiremod): Wire inputs/outputs on the core, for players who build their own panels.
 -- Nothing here is needed to fly; a ship without wires works fully automatic.
--- (2026-11-16, owner: one name for one thing - the input "Park" is now "Freeze", like the menu button and the key)
+-- (one name for one thing - the input "Park" is now "Freeze", like the menu button and the key)
 local INPUTS = {
 	"Hover", "Freeze", "Jump", "Jump Mark", "Jump Pos [VECTOR]", "Cancel Jump", "Fire", "Target [ENTITY]", "Next Target",
 	"Shield", "Iris", "Dial [STRING]", "Close Gate", "Autopilot", "Autopilot Pos [VECTOR]",
-	-- 2026-11-14: fly by wire like a Gyro-Pod (read by the helm, sv_helm.lua addWire)
+	-- fly by wire like a Gyro-Pod (read by the helm, sv_helm.lua addWire)
 	"Forward", "Turn", "Up", "Strafe", "Pitch", "Boost",
-	-- 2026-11-17 (owner: keys for tractor beam and cloak, "and wire of course"): Cloak 1/0; Tractor 1 = hold, 2 = pull in,
-	-- 3 = push away, 0 = let go - it takes Tractor Entity when wired, else the radar target, else what is straight ahead of the ship
+	-- (keys for tractor beam and cloak, "and wire of course"): Cloak 1/0; Tractor 1 = hold, 2 = pull in, 3 = push away, 0 =
+	-- let go - it takes Tractor Entity when wired, else the radar target, else what is straight ahead of the ship
 	"Cloak", "Tractor", "Tractor Entity [ENTITY]",
-	-- 2026-11-17 (owner: carriers): 1 = dock into the bigger ship this one is in, 0 = let go
+	-- (carriers): 1 = dock into the bigger ship this one is in, 0 = let go
 	"Dock",
 }
 local OUTPUTS = {
 	"Hover", "Speed", "Altitude", "FTL State", "Power %", "Shield Up", "Shield %", "Hull %", "Target [ENTITY]",
 	"Target Pos [VECTOR]", "Contacts", "Hostiles", "Gate Open", "Iris Closed", "Autopilot",
-	-- 2026-11-14: where the ship is (owner: "compass, gps with vectors")
+	-- where the ship is
 	"Position [VECTOR]", "Velocity [VECTOR]", "Angle [ANGLE]", "Heading", "Pitch", "Roll",
-	-- 2026-11-16: 1 while the ship is frozen in place (input Freeze, the menu's / screen's Freeze button or the pilot's key) - for a lamp
+	-- 1 while the ship is frozen in place (input Freeze, the menu's / screen's Freeze button or the pilot's key) - for a lamp
 	"Frozen",
-	-- 2026-11-17: 1 while cloaked; what the tractor beam holds (NULL = nothing)
+	-- 1 while cloaked; what the tractor beam holds (NULL = nothing)
 	"Cloaked", "Tractor [ENTITY]",
-	-- 2026-11-17: 1 while docked in a bigger ship; how many ships are docked in this one
+	-- 1 while docked in a bigger ship; how many ships are docked in this one
 	"Docked", "Docked Ships",
 }
 
