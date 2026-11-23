@@ -7,7 +7,7 @@ StarCore turns whatever you built into a real spaceship. Weld one core to your b
 ## Install
 **Steam Workshop (easiest):** subscribe [there](https://steamcommunity.com/sharedfiles/filedetails/?id=3840678974).
 
-**By hand:** download `starcore-1.0.3.zip` from [Releases](../../releases/latest) and unpack it into
+**By hand:** download `starcore-1.0.4.zip` from [Releases](../../releases/latest) and unpack it into
 `garrysmod/addons/` (you get the folder `garrysmod/addons/starcore`).
 
 ## Bugs, problems and wishes
@@ -15,6 +15,7 @@ Please use [Issues](../../issues): pick *Bug report* or *Wish or idea*. On the S
 
 ## Pictures
 <p>
+<img src=".github/images/00_sc_all_12_cores.jpg" width="49%" alt="">
 <img src=".github/images/01_gal_sc_reactor_core_1.jpg" width="49%" alt="">
 <img src=".github/images/02_gal_sc_crystal_heart_2.jpg" width="49%" alt="">
 <img src=".github/images/03_gal_sc_alien_artifact_1.jpg" width="49%" alt="">
@@ -44,7 +45,7 @@ Please use [Issues](../../issues): pick *Bug report* or *Wish or idea*. On the S
 - With Ascension Gates, its admin setting decides how hard weapons hit the hull: as in the series or each weapon's own damage. Its ship weapons run on the ship's power: ZPMs, generators and batteries on the ship, cabled or not
 
 ### Stargate tie-in
-With Ascension Gates (or CAP, CAP Enhanced, EAP): the ship's own gate and iris, dialling from the ship window, auto-iris, jump to a gate, and Asgard beaming with the ship's transporter.
+With Ascension Gates (or CAP, CAP Enhanced, EAP): the ship's own gate and iris, dialling from the ship window (without a gate on board: from the nearest one), auto-iris, jump to a gate, and Asgard beaming with the ship's transporter.
 
 ### Looks and comfort
 - 12 core designs in four families: reactor, crystal, alien and military - swap a placed core's look whenever the ship is landed

@@ -57,14 +57,50 @@ function SG.SetIris(core, closed)
 	return iris.IsActivated == closed
 end
 
--- the list for the menu: every gate on the map (for "jump to gate"), plus the dial string if our gate can dial it
-function SG.GateList(core)
+-- A ship without a gate of its own dials from the nearest one (AGP's Puddle Jumper and Dart dial the nearest gate
+-- within 5000 too). Never a gate that is part of another ship. The one this ship dialled stays its gate while that
+-- wormhole is on, also from further away.
+--
+local NEAR = 5000
+local function running(g) return g.IsOpen or g.Dialling or g.Active end
+local function ours(core)
+	local g = core.SGDialled
+	if not IsValid(g) then return nil end
+	-- (a gate takes a moment to start dialling)
+	if CurTime() - (core.SGDialledAt or 0) < 1 or running(g) and g.Outbound then return g end
+	return nil
+end
+function SG.NearGate(core)
+	local d = ours(core)
+	if d then core.SGNear = d return d end
+	local at, best, dist = StarCore.ShipCenter(core), nil, NEAR
+	for _, g in ipairs(ents.FindByClass("stargate_*")) do
+		if IsValid(g) and g.IsStargate then
+			local owner = StarCore.PartCore and StarCore.PartCore[g]
+			local d2 = g:GetPos():Distance(at)
+			if d2 <= dist and not (IsValid(owner) and owner ~= core) then best, dist = g, d2 end
+		end
+	end
+	core.SGNear = best
+	return best
+end
+-- the gate this ship dials from. The open window is told by a number which one that is (below zero: its wormhole is
+-- this ship's own), so it can ask for its list again as the ship flies up to a gate or the wormhole closes.
+function SG.DialGate(core)
+	local near = not IsValid(core.Gate) and SG.NearGate(core) or nil
+	core:SetNWInt("starcore_near", near and (ours(core) == near and -1 or 1) * near:EntIndex() or 0)
+	return IsValid(core.Gate) and core.Gate or near
+end
+
+-- the list for the menu: every gate on the map (for "jump to gate"), plus the dial string if our gate (else the nearest
+-- one: from) can dial it
+function SG.GateList(core, from)
 	local list = {}
 	if not SG.Available() then return list end
 	local dial = {}
 	local own = core.Gate
-	if IsValid(own) and own.WireGetAddresses then
-		local ok, addrs = pcall(own.WireGetAddresses, own)
+	if IsValid(from) and from.WireGetAddresses then
+		local ok, addrs = pcall(from.WireGetAddresses, from)
 		if ok and istable(addrs) then
 			for _, a in ipairs(addrs) do dial[#dial + 1] = { str = a[1], name = a[2], blocked = a[3] } end
 		end
@@ -95,18 +131,24 @@ end
 function SG.State(core)
 	if not SG.Available() then return nil end
 	local g = core.Gate
-	local st = { hasGate = IsValid(g), list = SG.GateList(core), irisAuto = core.SGIrisAuto ~= false }
+	local from = SG.DialGate(core)
+	local st = { hasGate = IsValid(g), list = SG.GateList(core, from), irisAuto = core.SGIrisAuto ~= false }
 	if IsValid(g) then
 		st.name = g.GetGateName and g:GetGateName() or ""
 		st.address = g.GetGateAddress and g:GetGateAddress() or ""
 		st.group = g.GetGateGroup and g:GetGateGroup() or ""
 		st.class = g:GetClass()
+	elseif IsValid(from) then
+		st.near = { id = from:EntIndex(), name = from.GetGateName and from:GetGateName() or "", address = from.GetGateAddress and from:GetGateAddress() or "",
+			group = from.GetGateGroup and from:GetGateGroup() or "", class = from:GetClass(), ours = ours(core) == from }
 	end
 	return st
 end
 
-function SG.Dial(core, ply, str, mode)
+-- near: without a gate of its own the ship may dial from the nearest one (the menu; Wire's Dial stays the ship's own)
+function SG.Dial(core, ply, str, mode, near)
 	local g = core.Gate
+	if not IsValid(g) and near then g = SG.NearGate(core) end
 	if not IsValid(g) then return false, "sg_no_gate" end
 	if g.IsOpen or g.Dialling or g.Active then return false, "sg_busy" end
 	if hook.Run("StarGate.Player.CanDialGate", ply, g) == false then return false, "no_permission" end
@@ -115,11 +157,12 @@ function SG.Dial(core, ply, str, mode)
 	if mode == "nox" and g.NoxDialGate then g:NoxDialGate(str)
 	else g:DialGate(str, mode ~= "slow") end
 	core.SGOutbound = true
+	if g ~= core.Gate then core.SGDialled, core.SGDialledAt = g, CurTime() end
 	return true
 end
 
 function SG.Close(core)
-	local g = core.Gate
+	local g = IsValid(core.Gate) and core.Gate or ours(core)   -- (a gate near the ship: only the wormhole it opened itself)
 	if not IsValid(g) then return false end
 	g:AbortDialling()
 	return true
@@ -146,7 +189,16 @@ end)
 -- every half second (from the core's Think): reopen the iris we closed once the wormhole is gone
 function SG.Think(core)
 	local g = core.Gate
-	if not IsValid(g) then return end
+	if IsValid(core.SGDialled) and CurTime() - (core.SGDialledAt or 0) > 3 and not ours(core) then core.SGDialled = nil end
+	if not IsValid(g) then
+		-- (the menu's state line: the gate this ship dials from - found by the open menu, never searched for here)
+		local n = ours(core) or core.SGNear
+		n = IsValid(n) and n or nil
+		core:SetNWBool("starcore_gate_open", n ~= nil and n.IsOpen == true)
+		core:SetNWBool("starcore_gate_busy", n ~= nil and (n.Active or n.Dialling) == true)
+		core:SetNWBool("starcore_gate_inbound", n ~= nil and (n.Active and not n.Outbound) == true)
+		return
+	end
 	core:SetNWBool("starcore_iris_closed", SG.IrisClosed(core))
 	core:SetNWBool("starcore_gate_open", g.IsOpen == true)
 	core:SetNWBool("starcore_gate_busy", (g.Active or g.Dialling) == true)

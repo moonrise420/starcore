@@ -176,11 +176,11 @@ hook.Add("EntityTakeDamage", "StarCore.Hull", function(ent, dmg)
 	StarCore.HullDamage(core, dmg:GetDamage() * f)
 end)
 
--- engineers on board: slow repair (and the ship can not fly while disabled). The owner, (it was 1 % a second with
--- any number of engineers, a full repair in 100 s even in a fight): 0.5 % of the hull a second for each engineer, at
--- most two working (full from empty in about 3.5 minutes with one, under 2 with two), and none for 5 s after the
--- last hit. Parts of a point are kept, so small ships (1000 hull = 5 a second) repair evenly.
-local REPAIR_RATE, REPAIR_MAX_ENGINEERS, REPAIR_PAUSE = 0.005, 2, 5   -- (the owner, later the same day: 0.5 % and 5 s)
+-- engineers on board: slow repair (and the ship can not fly while disabled). (it was 1 % a second with any number
+-- of engineers, a full repair in 100 s even in a fight): 0.5 % of the hull a second for each engineer, at most two
+-- working (full from empty in about 3.5 minutes with one, under 2 with two), and none for 5 s after the last hit.
+-- Parts of a point are kept, so small ships (1000 hull = 5 a second) repair evenly.
+local REPAIR_RATE, REPAIR_MAX_ENGINEERS, REPAIR_PAUSE = 0.005, 2, 5   -- (0.5 % and 5 s)
 StarCore.RepairRate, StarCore.RepairMaxEngineers, StarCore.RepairPause = REPAIR_RATE, REPAIR_MAX_ENGINEERS, REPAIR_PAUSE
 function StarCore.CrewThink(core)
 	if (core.NextCrew or 0) > CurTime() then return end

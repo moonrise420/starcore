@@ -41,9 +41,9 @@ end
 
 -- the input that fires a weapon: "Fire" - or "Launch" on the drone launchers (AGP's drone_launcher and
 -- launcher_drones,: the author wants every AGP weapon usable by the pilot and the gunners) AGP pieces
--- that are no ship's guns although they have a Fire input: a ship does not fire them, welded on or not (the owner,
--- picked the ship weapons: Asgard beam, Ha'tak staff cannon, drone launcher, Ori beam cannon, the Destiny main weapon
--- and turrets, ship rail gun, ion cannon, Vanir and Wraith plasma cannons)
+-- that are no ship's guns although they have a Fire input: a ship does not fire them, welded on or not (Asgard
+-- beam, Ha'tak staff cannon, drone launcher, Ori beam cannon, the Destiny main weapon and turrets, ship rail gun, ion
+-- cannon, Vanir and Wraith plasma cannons)
 local NOT_SHIP_WEAPON = { ag_3 = true, asuran_gate_weapon = true, gate_overloader = true, minidrone_platform = true,
 	ori_satellite = true, staff_stationary = true, stationary_railgun = true }
 StarCore.NotShipWeapon = NOT_SHIP_WEAPON
@@ -315,15 +315,15 @@ local function stopWeapons(core)
 end
 StarCore.StopWeapons = stopWeapons
 
--- Aiming by hand (the owner,: "the gunner only needs to turn the crosshair ... the Destiny weapons follow the
--- crosshair, energy weapons or drones fly where the crosshair is"). A pilot or gunner whose own game is on
--- crosshair aim (cl_hud.lua, key starcore_key_aim; gunners start on it) sends the point under the crosshair 10 times
--- a second. Holding fire, every weapon of the ship goes for that point - no radar target needed. Turrets turn to it
--- and fire at once, also while still turning - their shots leave along the barrel until it is on the point. But never
--- while the shot's real way goes into the own ship (it just does not shoot when the barrel looks at the hull):
--- checked along the barrel, or to the point once the barrel is near enough for AGP's turrets to send the shot there
--- (within about 25 degrees). (AGP's shots that touch their own ship anyway fly through it without harm - the safety
--- net, not the rule.)
+-- Aiming by hand. A pilot or gunner whose own game is on crosshair aim (cl_hud.lua, key starcore_key_aim; gunners
+-- start on it) sends the point under the crosshair 10 times a second. Holding fire, every weapon of the ship
+-- goes for that point - no radar target needed. Turrets turn to it and fire at once, also while still turning - their
+-- shots leave along the barrel until it is on the point. But never while the shot's real way goes into the own ship
+-- (it just does not shoot when the barrel looks at the hull): checked along the barrel, or to the point once the
+-- barrel is near enough for AGP's turrets to send the shot there (within about 25 degrees). (AGP's shots that touch
+-- their own ship anyway fly through it without harm - the safety net, not the rule.)
+--
+--
 local NEAR = 0.9   -- (sg_turret_base AimDirFrom: dot > 0.9 = the shot goes from the muzzle to the aim point)
 local function ownShipInWay(core, w, p)
 	local _, muzzle, bdir = barrelOf(w)

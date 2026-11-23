@@ -118,9 +118,9 @@ hook.Add("Think", "StarCore.Keys", function()
 	if pullPress then toggleTractor(core, "pull") end
 	if pushPress then toggleTractor(core, "push") end
 end)
--- Aim (the owner): auto = the weapons go for the radar target; crosshair = they go for the point under the
--- crosshair (sv_combat.lua, fireAtPoint). Gunners start on the crosshair, the pilot on auto; starcore_key_aim
--- (middle mouse) switches. While on the crosshair the point is sent to the server 10 times a second.
+-- Aim: auto = the weapons go for the radar target; crosshair = they go for the point under the crosshair
+-- (sv_combat.lua, fireAtPoint). Gunners start on the crosshair, the pilot on auto; starcore_key_aim (middle
+-- mouse) switches. While on the crosshair the point is sent to the server 10 times a second.
 local cvKeyAim = GetConVar("starcore_key_aim")
 StarCore.AimManual = false
 local aimSeat, nextAim = nil, 0

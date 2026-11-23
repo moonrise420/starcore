@@ -520,12 +520,15 @@ local function buildGates(sheet)
 	p.Paint = nil
 	if sg.hasGate then
 		label(p, T("sg_ship_gate", sg.name ~= "" and sg.name or sg.class, sg.address, sg.group), "DermaDefaultBold")
+	elseif sg.near then -- (dialled from the nearest gate)
+		label(p, T("sg_near_gate", sg.near.name ~= "" and sg.near.name or sg.near.class, sg.near.address, sg.near.group), "DermaDefaultBold")
 	else
 		label(p, T("sg_no_ship_gate"), "DermaDefaultBold")
 	end
+	local canDial = sg.hasGate or sg.near ~= nil
 	local status = label(p, "")
 	status.Think = function(self)
-		if not IsValid(current) or not sg.hasGate then return end
+		if not IsValid(current) or not canDial then return end
 		local g = T("sg_state_idle")
 		if current:GetNWBool("starcore_gate_open") then
 			g = current:GetNWBool("starcore_gate_inbound") and T("sg_state_open_in") or T("sg_state_open_out")
@@ -535,7 +538,7 @@ local function buildGates(sheet)
 			i = current:GetNWBool("starcore_iris_closed") and T("sg_iris_closed") or T("sg_iris_open")
 			if current:GetNWBool("starcore_iris_wired") then i = i .. " (" .. T("sg_iris_wired") .. ")" end
 		end
-		self:SetText(g .. "   ·   " .. i)
+		self:SetText(sg.hasGate and (g .. "   ·   " .. i) or g)
 		self:SizeToContents()
 	end
 
@@ -550,7 +553,7 @@ local function buildGates(sheet)
 	local lines = {}
 	for _, g in ipairs(sg.list or {}) do
 		local addr = g.dial or g.address
-		if sg.hasGate and not g.dial then addr = addr .. " ✕" end
+		if canDial and not g.dial then addr = addr .. " ✕" end
 		local line = list:AddLine(g.name, addr, U.Dist(g.dist))
 		line:SetSortValue(3, tonumber(g.dist) or 0)
 		line.gate = g
@@ -583,14 +586,14 @@ local function buildGates(sheet)
 	mode:AddChoice(T("mode_fast"), "fast", true)
 	mode:AddChoice(T("mode_slow"), "slow")
 	mode:AddChoice(T("mode_nox"), "nox")
-	local function rowButton(text, fn, wide)
+	local function rowButton(text, fn, on, wide)
 		local b = create("DButton", row)
 		b:Dock(LEFT)
 		b:DockMargin(4, 0, 0, 0)
 		b:SetWide(wide or 120)
 		b:SetText(text)
 		b.DoClick = fn
-		b:SetEnabled(sg.hasGate)
+		b:SetEnabled(on == true)
 		return b
 	end
 	rowButton(T("btn_dial"), function()
@@ -599,9 +602,9 @@ local function buildGates(sheet)
 		if not g.dial then notification.AddLegacy(T("sg_not_dialable"), NOTIFY_ERROR, 4) return end
 		local _, m = mode:GetSelected()
 		send("sg_dial", { address = g.dial, mode = m or "fast" })
-	end)
-	rowButton(T("btn_close_gate"), function() send("sg_close") end)
-	rowButton(T("btn_iris"), function() send("sg_iris") end, 110)
+	end, canDial)
+	rowButton(T("btn_close_gate"), function() send("sg_close") end, sg.hasGate or (sg.near ~= nil and sg.near.ours))
+	rowButton(T("btn_iris"), function() send("sg_iris") end, sg.hasGate, 110)
 
 	local auto = create("DCheckBoxLabel", p)
 	auto:Dock(TOP)
@@ -1236,7 +1239,8 @@ local function gatesSig(sg)
 	local ids = {}
 	for _, g in ipairs(sg.list or {}) do ids[#ids + 1] = table.concat({ tostring(g.id), tostring(g.name), tostring(g.address), tostring(g.dial) }, "|") end
 	table.sort(ids) -- the server sorts by distance: flying past gates is no change
-	return table.concat({ tostring(sg.hasGate), tostring(sg.name), tostring(sg.address), tostring(sg.group), tostring(sg.class) }, "|") .. "#" .. table.concat(ids, ";")
+	return table.concat({ tostring(sg.hasGate), tostring(sg.name), tostring(sg.address), tostring(sg.group), tostring(sg.class),
+		sg.near and table.concat({ sg.near.id, tostring(sg.near.name), tostring(sg.near.address), tostring(sg.near.group), tostring(sg.near.ours) }, "|") or "" }, "|") .. "#" .. table.concat(ids, ";")
 end
 local function powerSig(pw)
 	pw = pw or {}
@@ -1433,6 +1437,13 @@ function build()
 		if not IsValid(current) then self:Close() return end
 		-- keep the radar data coming while the menu is open
 		if (self.nextWatch or 0) < CurTime() then self.nextWatch = CurTime() + 2; send("watch") end
+		-- another gate near the ship, or the wormhole it dialled opened or closed: the Gates tab anew
+		local sg = state and state.sg
+		if sg and not sg.hasGate and (self.nextNear or 0) < CurTime() then
+			self.nextNear = CurTime() + 1
+			local near = sg.near and (sg.near.ours and -1 or 1) * sg.near.id or 0
+			if current:GetNWInt("starcore_near", 0) ~= near then send("refresh") end
+		end
 		if next(self.dirty) then refreshTabs() end -- AGP: a change that came while the player was busy
 	end
 end

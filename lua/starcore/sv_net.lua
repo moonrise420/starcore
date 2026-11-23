@@ -124,7 +124,7 @@ end
 -- Stargate (level 3)
 handlers.sg_dial = function(core, ply, d)
 	if not (StarCore.SG and StarCore.SG.Available()) then return end
-	local ok, why = StarCore.SG.Dial(core, ply, d.address, d.mode)
+	local ok, why = StarCore.SG.Dial(core, ply, d.address, d.mode, true)
 	if not ok then StarCore.Notify(ply, why, NOTIFY_ERROR) end
 end
 
@@ -264,8 +264,12 @@ end
 handlers.watch = function(core, ply, d)
 	core.Viewers = core.Viewers or {}
 	core.Viewers[ply] = CurTime() + 3
+	if StarCore.SG and StarCore.SG.Available() then StarCore.SG.DialGate(core) end   -- (the gate near the ship: for the Gates tab)
 	return true
 end
+
+-- the open window asks for the state again (the gate near the ship changed)
+handlers.refresh = function() end
 
 handlers.target = function(core, ply, d)
 	if d.step then StarCore.CycleTarget(core, d.step > 0 and 1 or -1)

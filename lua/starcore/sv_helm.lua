@@ -60,8 +60,8 @@ function StarCore.FrontYaw(core)
 end
 
 -- while the helm flies, the game's air drag is off on every part. It pulled each part on its own, and the weld turned that
--- into a turn of the whole ship when the parts were not lined up (test ptwobble: core 25 units beside the seat, 3.4
--- degrees). The helm sets the speed itself; the drag comes back as it was when the helm lets go.
+-- into a turn of the whole ship when the parts were not lined up (core 25 units beside the seat, 3.4 degrees). The helm
+-- sets the speed itself; the drag comes back as it was when the helm lets go.
 --
 function StarCore.HelmDrag(e, p, on)
 	if on then
@@ -216,10 +216,10 @@ local function readMouseFree(core, ply, inp)
 	inp.turn, inp.strafe, inp.pitch = 0, 0, 0
 end
 
--- Wire flight (owner via the SpaceGrid chat: "a gyro pod and compass, gps with vectors" - fly the core by wire like SBEP's
--- Gyro-Pod): the inputs Forward, Turn, Up, Strafe (-1..1), Pitch (-1..1, 1 = nose up, up to MAX_PITCH) and Boost
--- (non-zero) act like a pilot's keys - alone when no one sits in the pilot seat, added to the pilot's keys when
--- someone does. The helm must be on (input Hover) like for a pilot.
+-- Wire flight (fly the core by wire like SBEP's Gyro-Pod): the inputs Forward, Turn, Up, Strafe (-1..1), Pitch (-1..1, 1 =
+-- nose up, up to MAX_PITCH) and Boost (non-zero) act like a pilot's keys - alone when no one sits in the pilot seat,
+-- added to the pilot's keys when someone does. The helm must be on (input Hover) like for a pilot.
+--
 local WIRE_AXES = { { "Forward", "fwd" }, { "Turn", "turn" }, { "Up", "up" }, { "Strafe", "strafe" } }
 local function wireValue(core, name)
 	local i = core.Inputs and core.Inputs[name]
@@ -304,8 +304,12 @@ function StarCore.HelmThink(core)
 	-- nose angle from mouse steering (positive = nose down); a heavy ship's nose goes less far (30 degrees at most for a
 	-- small one, 12 for the biggest)
 	local pitch = core.Autopilot and 0 or (inp.pitch or 0) * (1 - (hf - 1) * 0.3)
-	-- lean into the turn like a helicopter (the more it turns, the more it banks; back to level when it flies straight)
-	h.bank = Lerp(math.min(dt * 3, 1), h.bank or 0, core.Autopilot and 0 or -(inp.turn or 0) * MAX_BANK)
+	-- lean into the turn like a helicopter (the more it turns, the more it banks; back to level when it flies straight).
+	-- The lean followed every small left-right correction of the mouse, so steering along rocked the ship from
+	-- side to side. It now follows the turn held for a while (a short correction hardly leans), and a heavy ship leans
+	-- less.
+	h.turnHeld = Lerp(math.min(dt * 1.2, 1), h.turnHeld or 0, core.Autopilot and 0 or (inp.turn or 0))
+	h.bank = Lerp(math.min(dt * 2, 1), h.bank or 0, -h.turnHeld * MAX_BANK / hf)
 	local fwd = Angle(pitch, shipAng.y, 0):Forward()
 
 	-- linear: measured velocity wins after a collision, otherwise the commanded one keeps it smooth
@@ -383,7 +387,7 @@ function StarCore.HelmFree(core, h, s, inp, shipAng, pivot, cp, dt)
 	local maxSpeed = StarCore.CV.maxSpeed:GetFloat()
 	local speed = math.min(s.speed * (inp.boost and s.boost or 1), maxSpeed)
 	local F, R, U = shipAng:Forward(), shipAng:Right(), shipAng:Up()
-	h.targetZ, h.holdYaw, h.bank = nil, nil, 0
+	h.targetZ, h.holdYaw, h.bank, h.turnHeld = nil, nil, 0, 0
 	-- the speed turns with the ship: kept as forward / right / up of the ship, so after a turn the ship flies where its
 	-- nose points, not on the old way
 	local l = h.freeLocal
@@ -482,7 +486,7 @@ function StarCore.SeatExitSpot(veh, ply, extra, inside)
 	local up = Vector(0, 0, 1)
 	local seatAt = veh:GetPos()
 	-- (the seat's own up, not the world's: in a tilted or rolled ship - free flight - the world's up from the seat can
-	-- be in the deck or a console, the owner got up in a rolled ship and stuck in the console and floor)
+	-- be in the deck or a console, a player got up in a rolled ship and stuck in the console and floor)
 	local sUp = veh:GetUp()
 	local eye = seatAt + sUp * 30
 	local function boxFree(at)

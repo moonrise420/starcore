@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.4
+**New**
+- A ship without a Stargate of its own dials from the nearest gate within 5000 units: the Gates tab names the gate, Dial and Close gate work. Never a gate that is part of another ship, and Close shuts only the wormhole the ship opened itself. The iris button and Wire's Dial still mean the ship's own gate. Texts in all 12 languages.
+
+**Changed**
+- With mouse steering a ship leans into a turn only once the turn is held for a moment, so small corrections no longer rock it from side to side. Ships longer than 2000 units lean less.
+
 ## 1.0.3
 **New**
 - Crosshair aim: pilots and gunners switch the weapons between auto aim (the radar target, with lead) and the crosshair (key `starcore_key_aim`, default middle mouse). Gunners' turrets follow the crosshair without pressing fire.

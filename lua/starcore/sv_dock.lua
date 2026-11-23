@@ -320,7 +320,7 @@ function StarCore.DockAddCarried(core)
 	-- the docked ships and the big ship do not push each other. The set of the big ship's parts stays the same table and
 	-- the docked parts are told again only when it changed (a new set in every scan, every 2 s, told the physics
 	-- each time that the collision rules changed; it checked the docked ship's contacts again and kicked it 3-6 units
-	-- off its place in one tick, about 2 s into a flight - test ptdock, 3 of 6 runs)
+	-- off its place in one tick, about 2 s into a flight, 3 of 6 runs)
 	local set, own, changed = core.DockNoCollide or {}, {}, false
 	for _, e in ipairs(core.OwnParts or {}) do
 		if IsValid(e) then

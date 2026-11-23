@@ -185,7 +185,7 @@ local RUNTIME = {
 	"Helm", "FTLData", "Autopilot", "AutopilotInputs", "Landing", "FleetLeader", "FleetOffset", "NextFleet",
 	"Hostiles", "Target", "TargetLock", "Contacts", "Viewers", "Engage", "Firing", "Weapons", "NextWeapons", "NextSensor",
 	"Tractor", "Transporter", "NextBeam", "Cloaked", "CloakSaved", "ExtraParts", "Excluded", "PilotSeat", "SeatRoles",
-	"Parts", "PhysParts", "Seats", "Screens", "Shields", "PowerSources", "RDPart", "Gate", "Iris", "SGOutbound", "SGIrisByUs",
+	"Parts", "PhysParts", "Seats", "Screens", "Shields", "PowerSources", "RDPart", "Gate", "Iris", "SGOutbound", "SGIrisByUs", "SGNear", "SGDialled", "SGDialledAt",
 	"Sleeping", "TooBig", "Destroyed", "Mass", "LocalMins", "LocalMaxs", "CombatMarked",
 	"DockedTo", "DockRoot", "DockRel", "OwnParts", "OwnMins", "OwnMaxs",   -- (docking, sv_dock.lua; a pasted ship is not docked)
 	"PowerRate", "LastStored", "LastStoredT", "LowPowerWarned", "ShieldWasUp", "ShieldOffByUs", "NextAutoShield",
