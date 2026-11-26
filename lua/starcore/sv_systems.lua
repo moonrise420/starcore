@@ -146,6 +146,10 @@ function StarCore.TractorThink(core)
 		tb.hold = tb.hold + tb.pushSpeed * FrameTime()
 		if tb.hold >= StarCore.CV.tractorRange:GetFloat() * 0.95 then StarCore.TractorSet(core, nil) return end
 	end
+	-- (test rcjumprings: a thing caught close under a big ship was held at that distance ahead of the ship's middle - inside the
+	-- ship: the beam rammed it into the own hull at up to 1240 a second, a wooden crate broke. Held outside the ship, as "pull"
+	-- already stops there.)
+	tb.hold = math.max(tb.hold, (core:GetNWVector("starcore_size"):Length() * 0.5) + 100)
 	local want = c + Angle(0, shipAng.y, 0):Forward() * tb.hold
 	local shipVel = core.Helm and core.Helm.vel or Vector(0, 0, 0)
 	local vel = (want - ent:WorldSpaceCenter()) * 3 + shipVel

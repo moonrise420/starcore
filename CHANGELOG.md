@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.0.5
+**New**
+- Pick how your ship flies in the StarCore menu (Settings): Classic is the default and flies like before. In Free flight the mouse steers and the nose stays where you leave it. Acrobatic is the old free flight with loops and rolls.
+
+**Changed**
+- If a ship gets destroyed, everyone inside dies with it, seated or standing (not in god mode). A ship that's only disabled hurts nobody.
+- The red "under attack" and "ship destroyed" pop-ups are gone. The ship's voice still tells you.
+
+**Fixed**
+- Walking in a flying ship: no more getting stuck in a deck that climbs or leans, and no jumping view on servers, on lifts or at doors either.
+- Standing still on a deck that leans or climbs, you don't slide along it anymore. Walking on a ship made of props doesn't drift you towards the edge either.
+- Jumping from one flying ship into another, by Stargate, rings or transporter, you're carried by the ship you arrive in right away, not dragged along by the one you left.
+- On servers, other players aboard are drawn where they really stand (they used to float next to you or sink into the floor), and shots at someone on the same flying ship hit.
+- Standing on your own ship's moving deck doesn't hurt you anymore.
+- If the engine stops in full flight, the people inside stay in the ship instead of being left in the air.
+- People and cargo on a ship made of props go through a Stargate with it.
+- Out of a Stargate the ship flies on the way its nose points. Before, it could fly straight back into the gate or through the floor.
+- A ship docked in a carrier goes through a gate together with the carrier.
+- After a landing the ship stays still. It used to keep grinding and turning on the spot, and welded parts got pushed out of place.
+- The tractor beam holds things outside your ship. On a big ship it could ram them into your own hull.
+- The ship window doesn't flicker anymore while a gate is being dialled.
+- The autopilot flies to a gate on the ground again. It used to climb to the top of the map and stay there.
+- When the part that held other things on your ship gets destroyed, those things fall down instead of hanging in the air.
+
 ## 1.0.4
 **New**
 - A ship without a Stargate of its own dials from the nearest gate within 5000 units: the Gates tab names the gate, Dial and Close gate work. Never a gate that is part of another ship, and Close shuts only the wormhole the ship opened itself. The iris button and Wire's Dial still mean the ship's own gate. Texts in all 12 languages.

@@ -55,8 +55,11 @@ if CLIENT then
 	CreateClientConVar("starcore_mouse_steer", "0", true, true, "StarCore: steer the ship with the mouse in the pilot seat (X turns, Y pitches)", 0, 1)
 	CreateClientConVar("starcore_mouse_sens", "1", true, true, "StarCore: mouse steering sensitivity", 0.2, 3)
 	-- free flight: the mouse turns the nose any way (loops), A/D roll, nothing levels the ship; off = the helm as
-	-- always (level, the nose at most 30 degrees up or down)
+	-- always (level, the nose at most 30 degrees up or down) (the first release's flight is the default again, the 1:1
+	-- mouse steering of 11-23 the free flight to choose, this one is for loops and rolls)
 	--
+	--
+	CreateClientConVar("starcore_direct_flight", "0", true, true, "StarCore: free flight - the mouse steers 1:1, the nose stays where the mouse left it", 0, 1)
 	CreateClientConVar("starcore_free_flight", "0", true, true, "StarCore: free flight - the mouse turns the ship any way, A/D roll, no levelling", 0, 1)
 	-- keys of the pilot seat (a Workshop player: look around as a switch, keys for mouse steering and hover), picked in
 	-- the menu's Settings tab (cl_hud.lua). 0 = no key. Look around: Alt by default, held or tapped on/off. Defaults M

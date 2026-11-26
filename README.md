@@ -7,7 +7,7 @@ StarCore turns whatever you built into a real spaceship. Weld one core to your b
 ## Install
 **Steam Workshop (easiest):** subscribe [there](https://steamcommunity.com/sharedfiles/filedetails/?id=3840678974).
 
-**By hand:** download `starcore-1.0.4.zip` from [Releases](../../releases/latest) and unpack it into
+**By hand:** download `starcore-1.0.5.zip` from [Releases](../../releases/latest) and unpack it into
 `garrysmod/addons/` (you get the folder `garrysmod/addons/starcore`).
 
 ## Bugs, problems and wishes

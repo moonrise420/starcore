@@ -117,17 +117,52 @@ function StarCore.Disable(core, off)
 	end
 end
 
+-- who is in or on a ship: in its seats, standing on it, with it under their feet - players, NPCs, nextbots. (Not who only is
+-- in the box round it: under its belly, beside its wing.)
+function StarCore.PeopleAboard(core)
+	local list, seen = {}, {}
+	local function add(p) if IsValid(p) and not seen[p] then seen[p] = true list[#list + 1] = p end end
+	local function part(x) return IsValid(x) and (StarCore.PartCore[x] == core or (IsValid(x:GetParent()) and StarCore.PartCore[x:GetParent()] == core)) end
+	for _, seat in ipairs(core.Seats or {}) do if IsValid(seat) then add(seat:GetDriver()) end end
+	for _, e in ipairs(core.Parts or {}) do if IsValid(e) and e:IsVehicle() then add(e:GetDriver()) end end
+	if not core.LocalMins then return list end
+	local c, r = core:LocalToWorld((core.LocalMins + core.LocalMaxs) / 2), (core.LocalMaxs - core.LocalMins):Length() / 2 + 120
+	for _, e in ipairs(ents.FindInSphere(c, r)) do
+		local person = (e:IsPlayer() and e:Alive()) or (e:IsNPC() and e:Health() > 0) or (e.IsNextBot and e:IsNextBot())
+		if person and not seen[e] and StarCore.IsInside(core, e) then
+			local from = e:WorldSpaceCenter()
+			if part(e:GetGroundEntity()) or util.TraceLine({ start = from, endpos = from - Vector(0, 0, 160), ignoreworld = true, filter = part }).Hit then add(e) end
+		end
+	end
+	return list
+end
+function StarCore.KillAboard(list, core)
+	for _, e in ipairs(list) do
+		if IsValid(e) and not (e:IsPlayer() and (not e:Alive() or e:HasGodMode())) then
+			if e:IsPlayer() and e:InVehicle() then e:ExitVehicle() end
+			local d = DamageInfo()
+			d:SetDamage(10000)
+			d:SetDamageType(DMG_BLAST)
+			d:SetAttacker(IsValid(core) and core or game.GetWorld())
+			d:SetInflictor(IsValid(core) and core or game.GetWorld())
+			d:SetDamagePosition(e:WorldSpaceCenter())
+			e:TakeDamageInfo(d)
+			if e:IsPlayer() and e:Alive() then e:Kill() end
+		end
+	end
+end
+
 -- destroyed: explosions, the welds break, the parts fall as a burning wreck (mode 1) or vanish (mode 2); the core is gone
 function StarCore.Destroy(core)
 	if core.Destroyed then return end
 	core.Destroyed = true
 	hook.Run("StarCore.Event", core, "destroyed")
-	StarCore.NotifyShip(core, "ship_destroyed", NOTIFY_ERROR)
 	StarCore.HelmSetOn(core, false)
 	if StarCore.StopWeapons then StarCore.StopWeapons(core) end
 	if StarCore.CloakSet and core.Cloaked then StarCore.CloakSet(core, false) end
 	local mode = StarCore.CV.destroyMode:GetInt()
 	local parts = table.Copy(core.Parts or {})
+	local aboard = StarCore.PeopleAboard(core)
 	local c = StarCore.ShipCenter(core)
 	local radius = math.max(core:GetNWVector("starcore_size"):Length() * 0.5, 150)
 	util.ScreenShake(c, 12, 6, 2.5, radius * 4)
@@ -156,6 +191,8 @@ function StarCore.Destroy(core)
 			end)
 		end
 	end
+	-- (the seated were only put out)
+	StarCore.KillAboard(aboard, core)
 	timer.Simple(0.2, function() if IsValid(core) then core:Remove() end end)
 end
 

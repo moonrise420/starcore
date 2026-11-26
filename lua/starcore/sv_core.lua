@@ -94,8 +94,34 @@ function StarCore.Scan(core)
 		end
 	end
 
+	-- parts that are no longer joined to the ship (the part they were welded to got destroyed) are let go: gravity,
+	-- drag and motion back, so they fall. They used to keep the ship's flight state and hung in the air where the hull
+	-- had been.
+	if core.Helm and core.PhysParts and (core.Helm.on or core.Helm.frozen) then
+		local now, others = {}, nil
+		for _, e in ipairs(phys) do now[e] = true end
+		for _, e in ipairs(core.PhysParts) do
+			if IsValid(e) and not now[e] and not others then
+				-- (parts of a docked ship or of another core's ship stay as their own ship has them)
+				others = {}
+				for c in pairs(StarCore.Cores) do
+					if c ~= core and IsValid(c) then for _, o in ipairs(c.Parts or {}) do others[o] = true end end
+				end
+			end
+			if IsValid(e) and not now[e] and not others[e] and not IsValid(e:GetParent()) and not e.StarCoreFollower then
+				local p = e:GetPhysicsObject()
+				if IsValid(p) then
+					if core.Helm.on then p:EnableGravity(true); StarCore.HelmDrag(e, p, false) end
+					if core.Helm.frozen then p:EnableMotion(true) end
+					p:Wake()
+				end
+			end
+		end
+	end
+
 	table.sort(seats, function(a, b) return a:EntIndex() < b:EntIndex() end)
 	core.Parts, core.PhysParts, core.Seats = parts, phys, seats
+	core.PartRest = nil   -- (where each welded part sits against the core: taken anew by the helm, sv_helm.lua)
 	if not (IsValid(core.PilotSeat) and table.HasValue(seats, core.PilotSeat)) then
 		-- auto: the first placed seat that has no other role flies the ship (until the tool picks another one)
 		core.PilotSeat = nil

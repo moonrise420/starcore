@@ -335,6 +335,24 @@ function StarCore.DockAddCarried(core)
 	for _, d in ipairs(docked) do dockTouch(d.OwnParts or d.Parts, set, changed) end
 end
 
+-- The core of the docked ship a thing belongs to, or nil (its own parts, its seats and devices; not what lies loose in it)
+function StarCore.DockedCoreOf(e)
+	if not IsValid(e) then return nil end
+	for c in pairs(StarCore.Cores) do
+		if IsValid(c) and IsValid(c.DockedTo) then
+			if e == c then return c end
+			for _, p in ipairs(c.OwnParts or c.Parts or {}) do if p == e or (IsValid(p) and e.SGHull == p) then return c end end
+		end
+	end
+	return nil
+end
+-- (a player watching a Supergate: the carrier stayed behind, the docked ship was at the far gate. A docked ship reached the
+-- horizon before its carrier did and rode by itself.) It never goes into a gate by itself: it goes when its carrier
+-- goes, held, hidden and shown in the same moment.
+hook.Add("StarGate.Teleport", "StarCore.DockedWaits", function(e)
+	if IsValid(e) and StarCore.DockedCoreOf(e) then return false end
+end)
+
 -- through a Stargate: a docked ship goes along with the ship it is docked in (Ascension Gates asks with
 -- "StarGate.TeleportAlong"; e and list = the contraption going through, along = what may come with it). Nothing holds
 -- a docked ship to its carrier, so the gate saw only the carrier; the docked ship met the far gate alone and was lost.

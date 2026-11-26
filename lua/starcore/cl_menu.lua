@@ -514,6 +514,7 @@ local function buildJump(sheet)
 	return p
 end
 
+local function cvOn(name) local c = GetConVar(name) return c ~= nil and c:GetBool() end
 local function buildGates(sheet)
 	local sg = state.sg
 	local p = create("DPanel", sheet)
@@ -603,7 +604,15 @@ local function buildGates(sheet)
 		local _, m = mode:GetSelected()
 		send("sg_dial", { address = g.dial, mode = m or "fast" })
 	end, canDial)
-	rowButton(T("btn_close_gate"), function() send("sg_close") end, sg.hasGate or (sg.near ~= nil and sg.near.ours))
+	-- (live, from the number the server keeps - below zero: the open wormhole is this ship's own. the window flickered
+	-- when he dialled - the whole tab was built anew for this one button.)
+	local close = rowButton(T("btn_close_gate"), function() send("sg_close") end, sg.hasGate)
+	if not sg.hasGate then
+		close.Think = function(self)
+			local on = IsValid(current) and current:GetNWInt("starcore_near", 0) < 0
+			if self:IsEnabled() ~= on then self:SetEnabled(on) end
+		end
+	end
 	rowButton(T("btn_iris"), function() send("sg_iris") end, sg.hasGate, 110)
 
 	local auto = create("DCheckBoxLabel", p)
@@ -1147,15 +1156,24 @@ local function buildSettings(sheet)
 	local mh = label(p, T("mouse_help"))
 	mh:SetWrap(true)
 	mh:SetAutoStretchVertical(true)
-	-- free flight: loops and rolls, nothing levels the ship
-	local ff = create("DCheckBoxLabel", p)
-	ff:Dock(TOP)
-	ff:DockMargin(4, 6, 4, 0)
-	ff:SetText(T("set_free_flight"))
-	ff:SetConVar("starcore_free_flight")
-	local fh = label(p, T("free_flight_help"))
+	-- free flight: loops and rolls, nothing levels the ship classic /
+	-- free flight (1:1) / loops and rolls
+	label(p, T("flight_mode"))
+	local fm = create("DComboBox", p)
+	fm:Dock(TOP)
+	fm:DockMargin(4, 2, 4, 0)
+	fm:SetSortItems(false)
+	local mode = cvOn("starcore_free_flight") and 3 or cvOn("starcore_direct_flight") and 2 or 1
+	local names = { "flight_classic", "flight_direct", "flight_loops" }
+	for n, key in ipairs(names) do fm:AddChoice(T(key), n, n == mode) end
+	local fh = label(p, T(names[mode] .. "_help"))
 	fh:SetWrap(true)
 	fh:SetAutoStretchVertical(true)
+	fm.OnSelect = function(_, _, _, n)
+		RunConsoleCommand("starcore_free_flight", n == 3 and "1" or "0")
+		RunConsoleCommand("starcore_direct_flight", n == 2 and "1" or "0")
+		fh:SetText(T(names[n] .. "_help"))
+	end
 
 	-- keys of the pilot seat (per player, cl_hud.lua): click a button, press a key; right-click = no key
 	label(p, " ")
@@ -1240,7 +1258,7 @@ local function gatesSig(sg)
 	for _, g in ipairs(sg.list or {}) do ids[#ids + 1] = table.concat({ tostring(g.id), tostring(g.name), tostring(g.address), tostring(g.dial) }, "|") end
 	table.sort(ids) -- the server sorts by distance: flying past gates is no change
 	return table.concat({ tostring(sg.hasGate), tostring(sg.name), tostring(sg.address), tostring(sg.group), tostring(sg.class),
-		sg.near and table.concat({ sg.near.id, tostring(sg.near.name), tostring(sg.near.address), tostring(sg.near.group), tostring(sg.near.ours) }, "|") or "" }, "|") .. "#" .. table.concat(ids, ";")
+		sg.near and table.concat({ sg.near.id, tostring(sg.near.name), tostring(sg.near.address), tostring(sg.near.group) }, "|") or "" }, "|") .. "#" .. table.concat(ids, ";")
 end
 local function powerSig(pw)
 	pw = pw or {}
@@ -1437,12 +1455,12 @@ function build()
 		if not IsValid(current) then self:Close() return end
 		-- keep the radar data coming while the menu is open
 		if (self.nextWatch or 0) < CurTime() then self.nextWatch = CurTime() + 2; send("watch") end
-		-- another gate near the ship, or the wormhole it dialled opened or closed: the Gates tab anew
+		-- another gate near the ship: the Gates tab anew
 		local sg = state and state.sg
 		if sg and not sg.hasGate and (self.nextNear or 0) < CurTime() then
 			self.nextNear = CurTime() + 1
-			local near = sg.near and (sg.near.ours and -1 or 1) * sg.near.id or 0
-			if current:GetNWInt("starcore_near", 0) ~= near then send("refresh") end
+			local near = sg.near and sg.near.id or 0
+			if math.abs(current:GetNWInt("starcore_near", 0)) ~= near then send("refresh") end
 		end
 		if next(self.dirty) then refreshTabs() end -- AGP: a change that came while the player was busy
 	end

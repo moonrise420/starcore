@@ -42,6 +42,8 @@ local function scanAhead(core, ap, c, g, dist, speed)
 	local filter = function(e) return not (own[e] or e:IsPlayer() or e:IsNPC()) end
 	local up = util.TraceLine({ start = c, endpos = c + Vector(0, 0, 6000), mask = MASK_SOLID_BRUSHONLY })
 	local top = math.max(up.HitPos.z - 20, c.z)              -- (the sky or a ceiling)
+	local reach = math.max(up.HitPos.z - ((base.z + maxs.z) - c.z) - 40, c.z)   -- highest its centre gets under it
+	local bottom = base.z + mins.z
 	local dir = Vector(g.x - c.x, g.y - c.y, 0):GetNormalized()
 	local look = math.min(dist - (r + 100), math.max(speed * 3, 1500))
 	local step = math.max(r * 1.5, 120)
@@ -53,9 +55,17 @@ local function scanAhead(core, ap, c, g, dist, speed)
 		local tr = util.TraceHull({ start = Vector(p.x, p.y, top), endpos = Vector(p.x, p.y, g.z - below - 60),
 			mins = Vector(-r, -r, 0), maxs = Vector(r, r, 1), mask = MASK_SOLID, filter = filter })
 		local need
-		if tr.StartSolid then need = top                       -- reaches the ceiling: as high as it goes
-		elseif tr.Hit then need = tr.HitPos.z + below + CLEAR end
+		if tr.StartSolid then
+			-- (the gate on the ground as goal, the ship only rose and hung at the map's top: a box starting in a wall
+			-- or a lower step of the sky set "as high as it goes" for the ship's centre, which it can never reach, so it
+			-- climbed for ever with no forward.) Look again with a thin line.
+			local tl = util.TraceLine({ start = Vector(p.x, p.y, top), endpos = Vector(p.x, p.y, g.z - below - 60), mask = MASK_SOLID, filter = filter })
+			if tl.Hit and not tl.StartSolid then need = tl.HitPos.z + below + CLEAR end
+		elseif tr.Hit and not (d < 2 * r and tr.HitPos.z > bottom - 8) then   -- (not what lies on its own deck)
+			need = tr.HitPos.z + below + CLEAR
+		end
 		if need then
+			need = math.min(need, reach)                        -- never above what the ship can reach
 			safe = math.max(safe, need)
 			if d <= near then safeNear = math.max(safeNear, need) end
 		end

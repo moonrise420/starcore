@@ -204,12 +204,12 @@ hook.Add("EntityTakeDamage", "StarCore.Hostiles", function(ent, dmg)
 	local now = CurTime()
 	if not own then core.Hostiles[src] = now + 120 end
 	if IsValid(otherCore) then core.Hostiles[otherCore] = now + 120 end
-	-- "The ship is under attack": at most once in starcore_attack_notice seconds per ship (far too often - it was once per
-	-- attacker, and a shot without an owner counted as a new attacker each time)
+	-- "Ship under attack!": the ship's voice on board, at most once in starcore_attack_notice seconds per ship (far too
+	-- often - it was once per attacker, and a shot without an owner counted as a new attacker each time). (No notice with the
+	-- red cross any more:.)
 	local every = StarCore.CV.attackNotice:GetFloat()
 	if every > 0 and now >= (core.NextAttackNote or 0) then
 		core.NextAttackNote = now + every
-		StarCore.NotifyShip(core, "under_attack", NOTIFY_ERROR)
 		hook.Run("StarCore.Event", core, "under_attack")
 	end
 end)

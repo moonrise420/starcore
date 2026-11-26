@@ -236,9 +236,9 @@ hook.Add("PreDrawHalos", "StarCore.TractorHalo", function()
 	if IsValid(e) then halo.Add({ e }, BEAM, 2, 2, 1, true, true) end
 end)
 
-local cvFree = GetConVar("starcore_free_flight")
+local cvFree, cvDirect = GetConVar("starcore_free_flight"), GetConVar("starcore_direct_flight")
 hook.Add("InputMouseApply", "StarCore.MouseSteer", function(cmd, x, y, ang)
-	if not (cvMouse:GetBool() or (cvFree and cvFree:GetBool())) or StarCore.Looking then return end
+	if not (cvMouse:GetBool() or (cvFree and cvFree:GetBool()) or (cvDirect and cvDirect:GetBool())) or StarCore.Looking then return end
 	local core = shipCore()
 	local ply = LocalPlayer()
 	if not IsValid(core) or not ply:InVehicle() or core:GetNWEntity("starcore_pilotseat") ~= ply:GetVehicle() then return end
@@ -360,7 +360,7 @@ local function gather(core, ply)
 	if core:GetNWBool("starcore_autopilot") then state = state .. " · " .. T("autopilot") end
 	if core:GetNWBool("starcore_cloaked") then state = state .. " · " .. T("cloaked") end
 	if IsValid(core:GetNWEntity("starcore_docked")) then state = T("hud_docked", dockName(core:GetNWString("starcore_docked_name", "?"))) end
-	if cvMouse:GetBool() and core:GetNWEntity("starcore_pilotseat") == veh then state = state .. " · " .. T(StarCore.Looking and "hud_look" or "hud_mouse") end
+	if (cvMouse:GetBool() or (cvFree and cvFree:GetBool()) or (cvDirect and cvDirect:GetBool())) and core:GetNWEntity("starcore_pilotseat") == veh then state = state .. " · " .. T(StarCore.Looking and "hud_look" or "hud_mouse") end
 	H.state = state
 
 	H.speed = T("hud_speed", U.Speed(core:GetNWFloat("starcore_speed")))

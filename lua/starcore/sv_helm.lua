@@ -14,15 +14,21 @@ local function heft(core)
 	local sz = core:GetNWVector("starcore_size")
 	return math.Clamp((sz and sz:Length() or 0) / 2000, 1, 3)
 end
+-- How soft its motion is: 0 up to 2000 units across (direct, as in the first release -, small ships like the first
+-- release, big ones soft), 1 from 3000.
+local function softness(core)
+	local sz = core:GetNWVector("starcore_size")
+	return math.Clamp(((sz and sz:Length() or 0) - 2000) / 1000, 0, 1)
+end
 -- Eased motion: a ramp at the most the ship may speed up (as before), then a soft blend onto it, so a turn or a
--- climb never starts or stops with a jolt. (Something else set the motion - a jump, a hit, parking: taken from there.)
-local function ease(h, key, cur, want, step, dt)
+-- climb never starts or stops with a jolt (soft 1; with soft 0 it is the ramp alone). (Something else set the motion - a jump, a hit, parking: taken from there.)
+local function ease(h, key, cur, want, step, dt, soft)
 	local rk, ok = key .. "Ramp", key .. "Out"
 	local r = h[rk]
 	if not r or h[ok] ~= cur then r = cur end
 	r = Vector(approach(r.x, want.x, step.x), approach(r.y, want.y, step.y), approach(r.z, want.z, step.z))
 	h[rk] = r
-	local out = LerpVector(math.min(dt * 6, 1), cur, r)
+	local out = LerpVector(Lerp(soft, 1, math.min(dt * 6, 1)), cur, r)
 	h[ok] = out
 	return out
 end
@@ -109,6 +115,8 @@ function StarCore.HelmRelock(core)
 	core.Helm.freeLocal = nil
 	core.Helm.freeOff = nil
 	core.Helm.holdYaw = nil
+	core.Helm.mouseOff, core.Helm.mousePitchWant, core.Helm.mousePitch = nil, nil, 0
+	core.Helm.stickX, core.Helm.stickY, core.Helm.mouseTurn = 0, 0, 0
 	core.Helm.targetZ = nil
 	core.Helm.vel = Vector(0, 0, 0)
 	core.Helm.angvel = Vector(0, 0, 0)
@@ -143,8 +151,11 @@ end
 local function freeFlight(ply)
 	return ply:GetInfoNum("starcore_free_flight", 0) == 1
 end
+local function directFlight(ply)
+	return ply:GetInfoNum("starcore_direct_flight", 0) == 1 and not freeFlight(ply)
+end
 local function mouseSteer(ply)
-	return (ply:GetInfoNum("starcore_mouse_steer", 0) == 1 or freeFlight(ply)) and ply:GetInfoNum("starcore_looking", 0) == 0
+	return (ply:GetInfoNum("starcore_mouse_steer", 0) == 1 or freeFlight(ply) or directFlight(ply)) and ply:GetInfoNum("starcore_looking", 0) == 0
 end
 hook.Add("StartCommand", "StarCore.MouseSteer", function(ply, cmd)
 	if not ply:InVehicle() or not ply.StarCorePilot then return end
@@ -152,9 +163,37 @@ hook.Add("StartCommand", "StarCore.MouseSteer", function(ply, cmd)
 	ply.StarCoreMouseY = math.Clamp((ply.StarCoreMouseY or 0) + cmd:GetMouseY(), -1000, 1000)
 end)
 
--- mouse -> a virtual stick: X is a turn rate that springs back when the mouse rests, Y holds a nose angle
--- that drifts back to level slowly. Both are clamped and filtered, so the ship never jitters.
+-- Classic, the default: the first release's stick. X is a turn rate that springs back when the mouse rests, Y holds a
+-- nose angle that drifts back to level slowly. Both are clamped and filtered, so the ship never jitters. Ships up to
+-- 2000 units across fly with the first release's numbers, bigger ones softer (softness, heft).
+--
+local function readMouseClassic(core, ply, inp)
+	local h = core.Helm
+	local dt = FrameTime()
+	local dx, dy = ply.StarCoreMouseX or 0, ply.StarCoreMouseY or 0
+	ply.StarCoreMouseX, ply.StarCoreMouseY = 0, 0
+	local sens = math.Clamp(ply:GetInfoNum("starcore_mouse_sens", 1), 0.2, 3)
+	h.mouseOff, h.mousePitchWant = nil, nil
+	h.stickX = math.Clamp((h.stickX or 0) + dx * 0.004 * sens, -1, 1)
+	h.stickY = math.Clamp((h.stickY or 0) + dy * 0.003 * sens, -1, 1)
+	if dx == 0 then h.stickX = approach(h.stickX, 0, dt * 2) end
+	if dy == 0 then h.stickY = approach(h.stickY, 0, dt * 0.25) end
+	-- low-pass so single mouse counts never show
+	h.mouseTurn = Lerp(math.min(dt * 8, 1), h.mouseTurn or 0, -h.stickX)
+	h.mousePitch = Lerp(math.min(dt * 4, 1), h.mousePitch or 0, h.stickY * 30)
+	inp.turn = math.abs(h.mouseTurn) > 0.03 and h.mouseTurn or 0
+	inp.pitch = h.mousePitch
+	-- A/D slide sideways while the mouse turns the ship
+	inp.strafe = (ply:KeyDown(IN_MOVERIGHT) and 1 or 0) - (ply:KeyDown(IN_MOVELEFT) and 1 or 0)
+end
+
+-- Free flight (starcore_direct_flight): the mouse steers 1:1. It was a stick: X a turn rate that ran out slowly, Y a nose angle that drifted back to
+-- level. Now X moves a point the nose turns to and stops at, Y sets the nose's angle, and it stays where the mouse
+-- left it. A small ship follows at once, a big one softly and slowly (softness, heft).
+--
 local MAX_PITCH = 30
+local MOUSE_PITCH = 60   -- (how far the mouse takes a small ship's nose up or down)
+local DEG_COUNT = 0.044  -- degrees a mouse count, at sensitivity 1
 local MAX_BANK = 22
 local function readMouse(core, ply, inp)
 	local h = core.Helm
@@ -162,14 +201,21 @@ local function readMouse(core, ply, inp)
 	local dx, dy = ply.StarCoreMouseX or 0, ply.StarCoreMouseY or 0
 	ply.StarCoreMouseX, ply.StarCoreMouseY = 0, 0
 	local sens = math.Clamp(ply:GetInfoNum("starcore_mouse_sens", 1), 0.2, 3)
-	h.stickX = math.Clamp((h.stickX or 0) + dx * 0.004 * sens, -1, 1)
-	h.stickY = math.Clamp((h.stickY or 0) + dy * 0.003 * sens, -1, 1)
-	if dx == 0 then h.stickX = approach(h.stickX, 0, dt * 2) end
-	if dy == 0 then h.stickY = approach(h.stickY, 0, dt * 0.25) end
-	-- low-pass so single mouse counts never show
-	h.mouseTurn = Lerp(math.min(dt * 8, 1), h.mouseTurn or 0, -h.stickX)
-	h.mousePitch = Lerp(math.min(dt * 4, 1), h.mousePitch or 0, h.stickY * MAX_PITCH)
-	inp.turn = math.abs(h.mouseTurn) > 0.03 and h.mouseTurn or 0
+	local soft, s = softness(core), core.Settings or Defaults
+	-- left / right: what is left to turn (what the ship turned since is done), and the fastest turn that still stops there
+	h.mouseOff = math.Clamp((h.mouseOff or 0) - (h.angvel or vector_origin).z * dt - dx * DEG_COUNT * sens, -90, 90)
+	local acc, lag = Lerp(soft, 360, 90) * 0.8, soft / 6
+	local a, rate = math.abs(h.mouseOff), 0
+	if a >= 0.05 then
+		rate = math.min(a * Lerp(soft, 8, 4), acc * (math.sqrt(lag * lag + 2 * a / acc) - lag), s.turn * Lerp(soft, 2.5, 1))
+		if h.mouseOff < 0 then rate = -rate end
+	end
+	inp.mouse, inp.mouseYaw, inp.mouseMoved = true, rate, dx ~= 0 or dy ~= 0
+	-- up / down
+	local most = Lerp(soft, MOUSE_PITCH, MAX_PITCH)
+	h.mousePitchWant = math.Clamp((h.mousePitchWant or h.mousePitch or 0) + dy * DEG_COUNT * sens, -most, most)
+	h.mousePitch = Lerp(math.min(dt * Lerp(soft, 25, 4), 1), h.mousePitch or 0, h.mousePitchWant)
+	inp.turn = 0
 	inp.pitch = h.mousePitch
 	-- A/D slide sideways while the mouse turns the ship
 	inp.strafe = (ply:KeyDown(IN_MOVERIGHT) and 1 or 0) - (ply:KeyDown(IN_MOVELEFT) and 1 or 0)
@@ -210,6 +256,7 @@ local function readMouseFree(core, ply, inp)
 	end
 	local yawMost, pitchMost = s.turn, s.turn * FREE_PITCH / hf
 	inp.free = true
+	h.mouseOff, h.mousePitchWant, h.mousePitch = nil, nil, 0   -- (the level flight's mouse point: afresh next time)
 	inp.yawRate = rateFor(o.y, yawMost) / s.turn
 	inp.pitchRate = rateFor(o.p, pitchMost) / pitchMost
 	inp.roll = (ply:KeyDown(IN_MOVERIGHT) and 1 or 0) - (ply:KeyDown(IN_MOVELEFT) and 1 or 0)
@@ -229,7 +276,8 @@ end
 local function addWire(core, inp)
 	if not core.Inputs then return end
 	for _, a in ipairs(WIRE_AXES) do inp[a[2]] = math.Clamp((inp[a[2]] or 0) + wireValue(core, a[1]), -1, 1) end
-	inp.pitch = math.Clamp((inp.pitch or 0) - wireValue(core, "Pitch") * MAX_PITCH, -MAX_PITCH, MAX_PITCH)
+	local wp = wireValue(core, "Pitch")
+	if wp ~= 0 then inp.pitch = math.Clamp((inp.pitch or 0) - wp * MAX_PITCH, -MAX_PITCH, MAX_PITCH) end
 	if wireValue(core, "Boost") ~= 0 then inp.boost = true end
 end
 
@@ -250,11 +298,20 @@ local function readInput(core)
 	if not (mouseSteer(ply) and freeFlight(ply)) then core.Helm.freeOff = nil end   -- (free flight's mouse point: afresh next time)
 	if mouseSteer(ply) and freeFlight(ply) then
 		readMouseFree(core, ply, inp)
-	elseif mouseSteer(ply) then
+	elseif mouseSteer(ply) and directFlight(ply) then
+		core.Helm.stickX, core.Helm.stickY, core.Helm.mouseTurn = 0, 0, 0
 		readMouse(core, ply, inp)
+	elseif mouseSteer(ply) then
+		readMouseClassic(core, ply, inp)
+	elseif directFlight(ply) and ply:GetInfoNum("starcore_looking", 0) == 1 then
+		-- (looking around with ALT: the nose stays where it is)
+		inp.pitch = core.Helm.mousePitch or 0
+		core.Helm.mouseOff = nil
+		ply.StarCoreMouseX, ply.StarCoreMouseY = 0, 0
 	else
 		inp.turn = (ply:KeyDown(IN_MOVELEFT) and 1 or 0) - (ply:KeyDown(IN_MOVERIGHT) and 1 or 0)
-		-- mouse off (or Alt held): forget the stick, the nose goes back to level
+		-- mouse off: the nose goes back to level
+		core.Helm.mouseOff, core.Helm.mousePitchWant = nil, nil
 		core.Helm.stickX, core.Helm.stickY, core.Helm.mouseTurn = 0, 0, 0
 		core.Helm.mousePitch = approach(core.Helm.mousePitch or 0, 0, FrameTime() * 20)
 		inp.pitch = core.Helm.mousePitch
@@ -265,12 +322,40 @@ local function readInput(core)
 end
 StarCore.ReadInput = readInput -- tests replace this to simulate a pilot
 
+-- Through a Stargate: the far gate turns the ship, but the helm went on with the speed and the heading it had before
+-- - the ship flew backwards into the gate or sideways into whatever stood there. The ship's speed is kept as forward /
+-- right / up of the ship and goes on in the new direction; heading, height and the mouse's point are taken anew.
+--
+local function rideOut(core, h)
+	local r = h.ride
+	h.ride = nil
+	local lv = WorldToLocal(r.vel, angle_zero, vector_origin, r.ang)
+	h.vel = LocalToWorld(lv, angle_zero, vector_origin, core:GetAngles())
+	h.angvel = Vector(0, 0, 0)
+	h.velRamp, h.velOut, h.angRamp, h.angOut = nil, nil, nil, nil
+	h.holdYaw, h.targetZ, h.mouseOff, h.freeOff, h.freeAdopt = nil, nil, nil, nil, nil
+	h.stickX, h.mouseTurn = 0, 0
+	h.rideTill = CurTime() + 0.3   -- (the gate's own push on the parts is no hit)
+end
+hook.Add("StarGate.Teleport", "StarCore.HelmRide", function(e, _, attached)
+	local core = StarCore.PartCore and StarCore.PartCore[e]
+	if not IsValid(core) and istable(attached) then
+		for _, v in ipairs(attached.Attached or {}) do
+			core = IsValid(v) and (v:GetClass() == "starcore" and v or StarCore.PartCore[v]) or core
+			if IsValid(core) then break end
+		end
+	end
+	local h = IsValid(core) and core.Helm
+	if h and h.on then h.ride = { ang = core:GetAngles(), vel = Vector(h.vel or vector_origin) } end
+end)
+
 function StarCore.HelmThink(core)
 	local h = core.Helm
 	if not h or not h.on or core.Sleeping or core.TooBig or core.DockedTo or not core.LocalMins then return end
 	-- in a Stargate's wormhole (Ascension Gates holds the whole ship until it comes out of the far gate): hands off
 	local p1 = core.PhysParts and core.PhysParts[1]
 	if core.AGPRideWith or (IsValid(p1) and p1.AGPRideWith) then return end
+	if h.ride then rideOut(core, h) end
 	local cp = core:GetPhysicsObject()
 	if not IsValid(cp) then return end
 	local s = core.Settings or Defaults
@@ -278,6 +363,7 @@ function StarCore.HelmThink(core)
 	local inp = StarCore.ReadInput(core)
 	local active = inp.fwd ~= 0 or math.abs(inp.turn) > 0.15 or inp.up ~= 0 or (inp.strafe or 0) ~= 0
 		or (inp.free and (inp.yawRate ~= 0 or inp.pitchRate ~= 0 or inp.roll ~= 0))
+		or (inp.mouse and (inp.mouseMoved or math.abs(inp.mouseYaw) > 1))
 	if core.Autopilot then
 		if active and not core.AutopilotInputs then
 			StarCore.AutopilotSet(core, nil) -- the pilot takes over
@@ -308,8 +394,10 @@ function StarCore.HelmThink(core)
 	-- The lean followed every small left-right correction of the mouse, so steering along rocked the ship from
 	-- side to side. It now follows the turn held for a while (a short correction hardly leans), and a heavy ship leans
 	-- less.
-	h.turnHeld = Lerp(math.min(dt * 1.2, 1), h.turnHeld or 0, core.Autopilot and 0 or (inp.turn or 0))
-	h.bank = Lerp(math.min(dt * 2, 1), h.bank or 0, -h.turnHeld * MAX_BANK / hf)
+	h.turnHeld = Lerp(math.min(dt * 1.2, 1), h.turnHeld or 0, core.Autopilot and 0 or math.Clamp((inp.turn or 0) + (inp.mouseYaw or 0) / math.max(s.turn, 1), -1, 1))
+	-- (classic: at once, as in the first release)
+	local lean = inp.mouse and -h.turnHeld or -(core.Autopilot and 0 or math.Clamp(inp.turn or 0, -1, 1))
+	h.bank = Lerp(math.min(dt * (inp.mouse and 2 or 3), 1), h.bank or 0, lean * MAX_BANK / hf)
 	local fwd = Angle(pitch, shipAng.y, 0):Forward()
 
 	-- linear: measured velocity wins after a collision, otherwise the commanded one keeps it smooth
@@ -317,7 +405,7 @@ function StarCore.HelmThink(core)
 	-- velocity at the ship centre: remove the part that comes from turning (big ships turn fast at the edges)
 	local wPrev = (h.angvel or Vector(0, 0, 0)) * (math.pi / 180)
 	local meas = cp:GetVelocity() - wPrev:Cross(cp:LocalToWorld(cp:GetMassCenter()) - pivot)
-	if (meas - h.vel):Length() > 300 then
+	if (meas - h.vel):Length() > 300 and (h.rideTill or 0) < CurTime() then
 		-- (the author's play test: a ship that flew into a wall or the map's edge bounced off "like a ping-pong ball",
 		-- faster each time. The speed after the hit was taken as the ship's new speed, and a hit that pushed the ship
 		-- out of the wall at more than its own speed made it faster.) A hit never makes the ship faster: it goes on the
@@ -331,7 +419,8 @@ function StarCore.HelmThink(core)
 	local speed = math.min(s.speed * (inp.boost and s.boost or 1), maxSpeed)
 	local want = fwd * speed * inp.fwd + Angle(0, shipAng.y, 0):Right() * speed * 0.6 * (inp.strafe or 0)
 	local climb = math.min(s.climb, maxSpeed)
-	if inp.fwd ~= 0 and math.abs(pitch) > 2 then
+	-- (classic: from 2 degrees on, as in the first release; 1:1 from 0.3 on - its nose stays, so at 2 it would bob)
+	if inp.fwd ~= 0 and math.abs(pitch) > (inp.mouse and 0.3 or 2) then
 		-- flying along a pitched nose: climb/dive with it (Space/Ctrl still add on top)
 		want.z = want.z + climb * inp.up
 		h.targetZ = nil
@@ -340,20 +429,45 @@ function StarCore.HelmThink(core)
 		h.targetZ = nil
 	else
 		if not h.targetZ then h.targetZ = pivot.z + h.vel.z * 0.25 end -- stop softly where the climb ends
+		-- (test rcpilot: landed with Ctrl, the height where the descent would have ended lay under the ground - the helm
+		-- pressed the ship into it for good, 95 units a second: it ground and spun on the spot. A height it is held off for
+		-- half a second is taken as reached.)
+		if math.abs(h.targetZ - pivot.z) > 4 and math.abs(meas.z) < 10 then
+			h.zStuck = (h.zStuck or 0) + dt
+			if h.zStuck > 0.5 then h.targetZ, h.zStuck = pivot.z, 0 end
+		else
+			h.zStuck = 0
+		end
 		want.z = math.Clamp((h.targetZ - pivot.z) * 2, -climb, climb)
 	end
 	local acc = s.accel * dt
-	h.vel = ease(h, "vel", h.vel, want, Vector(acc, acc, acc * 2 / hf), dt)
+	local soft = softness(core)
+	h.vel = ease(h, "vel", h.vel, want, Vector(acc, acc, acc * 2 / hf), dt, soft)
 
 	-- angular (degrees per second, world space): turn input + keep the ship level
-	local yawRate = s.turn * inp.turn
+	local yawRate = s.turn * inp.turn + (inp.mouseYaw or 0)
 	-- no turn input: the nose stays where the last turn ended (the ship turned a little on W / S); the heading is
 	-- taken once the turn has run out, so letting go of a turn never swings it back
-	if math.abs(inp.turn or 0) > 0.01 then
-		h.holdYaw = nil
+	if math.abs(inp.turn or 0) > 0.01 or (inp.mouseYaw or 0) ~= 0 then
+		h.holdYaw, h.yawWatch = nil, nil
 	elseif not h.holdYaw then
 		if math.abs((h.angvel or vector_origin).z) < 2 then h.holdYaw = shipAng.y end
 	else
+		-- (test rcpilot: a landing that knocked the nose a few degrees round, with the ground holding it there - the helm
+		-- turned at full rate against the ground for good: the landed ship ground on the spot and shoved its welded parts 4
+		-- units off. A heading it cannot get back to within 0.75 s is taken as the new one.)
+		local off = math.abs(math.NormalizeAngle(h.holdYaw - shipAng.y))
+		if off > 3 then
+			local now = CurTime()
+			if not h.yawWatch then h.yawWatch = { off = off, t = now }
+			elseif now - h.yawWatch.t > 0.75 then
+				-- (not closer than before: held, or pushed the other way)
+				if off > h.yawWatch.off - 1.5 then h.holdYaw = shipAng.y end
+				h.yawWatch = nil
+			end
+		else
+			h.yawWatch = nil
+		end
 		yawRate = math.Clamp(math.NormalizeAngle(h.holdYaw - shipAng.y) * 3, -20, 20)
 	end
 	local up = shipAng:Up()
@@ -364,12 +478,14 @@ function StarCore.HelmThink(core)
 	if sinA > 0.0001 then
 		local angle = math.asin(math.min(sinA, 1))
 		if up:Dot(wantUp) < 0 then angle = math.pi - angle end
-		level = axis * (1 / sinA) * math.min(math.deg(angle) * 2, 60 / hf)
+		-- (with the mouse a small ship's nose goes there at once)
+		level = axis * (1 / sinA) * math.min(math.deg(angle) * (inp.mouse and Lerp(soft, 6, 2) or 2), inp.mouse and Lerp(soft, 120, 60 / hf) or 60 / hf)
 	end
 	local wantW = Vector(level.x, level.y, yawRate + level.z)
 	h.angvel = h.angvel or Vector(0, 0, 0)
 	local step = 90 * dt
-	h.angvel = ease(h, "ang", h.angvel, wantW, Vector(step * 2 / hf, step * 2 / hf, step), dt)
+	h.angvel = ease(h, "ang", h.angvel, wantW, inp.mouse and Vector(Lerp(soft, 600, 180 / hf) * dt, Lerp(soft, 600, 180 / hf) * dt, Lerp(soft, 360, 90) * dt)
+		or Vector(step * 2 / hf, step * 2 / hf, step), dt, soft)
 	return StarCore.HelmMove(core, h, s, active, dt)
 end
 
@@ -378,7 +494,7 @@ function StarCore.HelmFree(core, h, s, inp, shipAng, pivot, cp, dt)
 	h.vel = h.vel or Vector(0, 0, 0)
 	local wPrev = (h.angvel or Vector(0, 0, 0)) * (math.pi / 180)
 	local meas = cp:GetVelocity() - wPrev:Cross(cp:LocalToWorld(cp:GetMassCenter()) - pivot)
-	if (meas - h.vel):Length() > 300 then
+	if (meas - h.vel):Length() > 300 and (h.rideTill or 0) < CurTime() then
 		local ms, hs = meas:Length(), h.vel:Length()
 		if ms > hs * 0.5 then meas = meas * (hs * 0.5 / math.max(ms, 0.001)) end   -- (a hit never makes it faster)
 		h.vel = meas
@@ -405,7 +521,7 @@ function StarCore.HelmFree(core, h, s, inp, shipAng, pivot, cp, dt)
 	local wantW = U * (inp.yawRate * rate) + R * (inp.pitchRate * rate * FREE_PITCH / hf) + F * (inp.roll * rate * FREE_ROLL / hf)
 	h.angvel = h.angvel or Vector(0, 0, 0)
 	local step = 120 * dt / hf
-	h.angvel = ease(h, "ang", h.angvel, wantW, Vector(step, step, step), dt)
+	h.angvel = ease(h, "ang", h.angvel, wantW, Vector(step, step, step), dt, 1)   -- (the mouse point's stopping counts on the blend)
 end
 
 -- the motion of the tick (h.vel, h.angvel) goes onto every part; the parked ship freezes; the HUD values
@@ -425,11 +541,52 @@ function StarCore.HelmMove(core, h, s, active, dt)
 			for e in pairs(d.DockRel or {}) do skip[e] = true end
 		end
 	end
+	-- (a part pushed off its place - the deck set down on the ground while the rest still goes down: welded walls stood 4 units
+	-- off for good, the same motion every tick left the welds no way to pull them back; rcpilot. A part held only by welds goes
+	-- back to where it was against the core when the helm took over)
+	local rest = core.PartRest
+	if not rest then
+		rest = {}
+		for _, e in ipairs(core.PhysParts) do
+			-- (only a ship of welded props whose core is welded in, not parented: a SpaceGrid keel is moved by its own code)
+			local ok, welds = IsValid(e) and e ~= core and not IsValid(core:GetParent()), 0
+			if ok then
+				for _, c in pairs(constraint.GetTable(e) or {}) do
+					if c.Type == "Weld" then welds = welds + 1 elseif c.Type ~= "NoCollide" then ok = false break end
+				end
+			end
+			ok = ok and welds > 0
+			if ok then rest[e] = core:WorldToLocal(e:GetPos()) end
+		end
+		core.PartRest = rest
+	end
+	-- (the shape, not the core's place: the deck on the ground stops while the core, welded on it, sinks a few units with the rest -
+	-- each part goes back by its own way off less the way off of all of them, the core counted as 0)
+	local offs, sum, n = {}, Vector(0, 0, 0), 1
+	if dt > 0 and h.angvel:LengthSqr() < 10 * 10 then
+		for e, lp in pairs(rest) do
+			if IsValid(e) then
+				local off = core:LocalToWorld(lp) - e:GetPos()
+				offs[e] = off
+				sum:Add(off)
+				n = n + 1
+			end
+		end
+	end
+	local mean = sum / n
 	for _, e in ipairs(core.PhysParts) do
 		local p = IsValid(e) and e:GetPhysicsObject()
 		if IsValid(p) and not (skip and skip[e]) then
 			local r = p:LocalToWorld(p:GetMassCenter()) - pivot
-			p:SetVelocity(h.vel + wRad:Cross(r))
+			local back = vector_origin
+			-- (not while it turns fast, and only what is clearly off: with every small way off pulled back in a pitch, the nose
+			-- never came up - Wire Pitch)
+			local off = offs[e] and offs[e] - mean or e == core and n > 1 and -mean or nil
+			if off then
+				local d = off:LengthSqr()
+				if d > 1 and d < 40 * 40 then back = off * math.min(0.5 / dt, 300 / math.sqrt(d)) end
+			end
+			p:SetVelocity(h.vel + wRad:Cross(r) + back)
 			p:SetAngleVelocity(p:WorldToLocalVector(h.angvel))
 			p:Wake()
 		end
